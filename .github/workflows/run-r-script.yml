@@ -29,4 +29,4 @@ jobs:
           Rscript -e 'install.packages(c("htmlwidgets", "echarts4r"))'
 
       - name: Run R script
-        run: Rscript your_script_name.R
+        run: Rscript visuals/mpstat_plot.R
