@@ -1,0 +1,32 @@
+name: Run R Script
+
+on:
+  push:
+    branches: [test-data]
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  run-r-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true # Speeds up installation on Linux
+
+      - name: Set up Pandoc
+        uses: r-lib/actions/setup-pandoc@v2 # Required for many htmlwidgets
+
+      - name: Install dependencies
+        run: |
+          # Install system dependencies if needed (e.g., libcurl for networking)
+          sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+          
+          # Install R packages
+          Rscript -e 'install.packages(c("htmlwidgets", "echarts4r"))'
+
+      - name: Run R script
+        run: Rscript your_script_name.R
