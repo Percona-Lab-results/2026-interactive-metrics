@@ -7,39 +7,30 @@ suppressPackageStartupMessages({
 })
 
 # ---- 1. Determine Files to Process ----
-# Check for environment variable from GitHub Actions
-env_files <- Sys.getenv("ALL_CHANGED_FILES")
+# Look in all subdirectories of benchmark_logs for .mpstat files
+log_dir <- "benchmark_logs"
 
-if (env_files != "") {
-  # Split space-separated string into a vector
-  all_files <- unlist(strsplit(env_files, "\\s+"))
-  # Filter for files ending in .mpstat
-  files_to_process <- all_files[grepl("\\.mpstat$", all_files)]
-  
-  if (length(files_to_process) == 0) {
-    cat("No mpstat updates to generate\n")
-    quit(save = "no", status = 0)
-  }
-} else {
-  # Fallback to manual command line arguments if not in GitHub Actions
-  args <- commandArgs(trailingOnly = TRUE)
-  if (length(args) < 2) {
-    stop("Usage: Rscript sample_cpu_echarts.R <input_file> <output_html>\n")
-  }
-  files_to_process <- args[1]
-  # We'll handle the output name inside the loop logic
+if (!dir.exists(log_dir)) {
+  stop(paste("Directory not found:", log_dir))
+}
+
+# recursive = TRUE ensures we look into all subdirectories
+files_to_process <- list.files(
+  path = log_dir, 
+  pattern = "\\.mpstat$", 
+  full.names = TRUE, 
+  recursive = TRUE
+)
+
+if (length(files_to_process) == 0) {
+  cat("No .mpstat files found in", log_dir, "or its subdirectories.\n")
+  quit(save = "no", status = 0)
 }
 
 # ---- 2. Processing Loop ----
 for (in_file in files_to_process) {
   
-  # Determine output filename: 
-  # If from env, replace .mpstat with .html. If from args, use args[2]
-  if (env_files != "") {
-    out_file <- gsub("\\.mpstat$", ".html", in_file)
-  } else {
-    out_file <- args[2]
-  }
+  out_file <- gsub("\\.mpstat$", ".html", in_file)
 
   if (!file.exists(in_file)) {
     warning(paste("File not found:", in_file))

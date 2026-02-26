@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 # Set the directory to crawl
-base_dir <- "../benchmark_logs"
+base_dir <- "benchmark_logs"
 output_file <- "index.html"
 
 # 1. Find all .html files recursively
