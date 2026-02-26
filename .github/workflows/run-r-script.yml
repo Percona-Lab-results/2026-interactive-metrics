@@ -5,6 +5,12 @@ on:
     branches: [test-data]
   workflow_dispatch: # Allows manual trigger
 
+# Permissions required for GITHUB_TOKEN to deploy to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  
 jobs:
   run-r-script:
     runs-on: ubuntu-latest
@@ -28,5 +34,33 @@ jobs:
           # Install R packages
           Rscript -e 'install.packages(c("htmlwidgets", "echarts4r"))'
 
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v45
+
       - name: Run R script
+        env:
+          ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: Rscript visuals/mpstat_plot.R
+
+      - name: Generate Index Page
+        run: Rscript visuals/make_index.R
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Note: Set path to '.' if index.html is at the root
+          # so it includes index.html AND the benchmark_logs folder
+          path: '.' 
+
+  # Make the site live
+  deploy:
+    needs: run-r-script
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

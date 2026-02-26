@@ -5,16 +5,18 @@ DB_HOST="127.0.0.1"   # REPLACE ME
 DB_USER="root"
 DB_PASS="password"
 DB_DATABASE="sbtest"
-#POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
-POOL_SIZES=(2)
+POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
+#POOL_SIZES=(2)
 
 #THREADS=(1 4 16 32 64 128 256)
-THREADS=(16)
+THREADS=(128 256)
 
-DURATION=90   # 900s 15 Minutes
+DURATION=900   # 900s 15 Minutes
 
-DBMS_NAME="mariadb"
-DBMS_VER="10.11"
+DBMS_NAME="$1"
+DBMS_VER="$2"
+
+echo "============= Running benchmarks for ${DBMS_NAME}:${DBMS_VER} ============="
 
 if [[ "$DBMS_NAME" == "percona-server" ]]; then
     IMAGE_PREFIX="percona/"
@@ -34,9 +36,9 @@ MYSQL_ROOT_PASSWORD="password"
 CONFIG_PATH="$HOME/configs/config.cnf"
 
 # --- DEBUG SETTINGS ---
-TABLE_ROWS=50000
-WARMUP_RO_TIME=20  #180
-WARMUP_RW_TIME=60  #600
+TABLE_ROWS=5000000
+WARMUP_RO_TIME=180
+WARMUP_RW_TIME=600
 
 
 server_wait() {
@@ -96,7 +98,8 @@ generate_config() {
     # Start Config
     echo "[mysqld]" > /tmp/config.cnf
     echo "innodb_buffer_pool_size = ${SIZE}G" >> /tmp/config.cnf
-
+    echo "max_prepared_stmt_count = 1000000" >> /tmp/config.cnf
+    echo "max_connections = 4096" >> /tmp/config.cnf
     # Instance Sizing
     if [ "$SIZE" -lt 8 ]; then
         echo "innodb_buffer_pool_instances = 1" >> /tmp/config.cnf
@@ -208,5 +211,5 @@ for SIZE in "${POOL_SIZES[@]}"; do
   done
 
   stop_container "$CONTAINER_NAME"
-  echo ">>> FINISHED"
 done
+echo "============= Finished benchmarks for ${DBMS_NAME}:${DBMS_VER} ============="
