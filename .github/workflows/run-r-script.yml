@@ -46,6 +46,9 @@ jobs:
       - name: Generate Index Page
         run: Rscript visuals/make_index.R
 
+      - name: Generate Throughput Report
+        run: Rscript visuals/throughput_report.R
+
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:

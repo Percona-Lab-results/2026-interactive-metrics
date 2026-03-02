@@ -15,11 +15,13 @@ DURATION=900   # 900s 15 Minutes
 
 DBMS_NAME="$1"
 DBMS_VER="$2"
+CONF_DIR="mysql/conf.d"
 
 echo "============= Running benchmarks for ${DBMS_NAME}:${DBMS_VER} ============="
 
 if [[ "$DBMS_NAME" == "percona-server" ]]; then
     IMAGE_PREFIX="percona/"
+    CONF_DIR="percona-server.conf.d"
 fi
 
 if [[ "$DBMS_NAME" == "mariadb" ]]; then
@@ -62,7 +64,7 @@ run_container() {
   local DIR=$1
   docker run --user mysql --rm --name "$CONTAINER_NAME" \
     --network host \
-    -v "${HOME}/configs:/etc/mysql/conf.d" \
+    -v "${HOME}/configs:/etc/${CONF_DIR}" \
     -e MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
     -e MYSQL_DATABASE="sbtest" \
     -e MYSQL_ROOT_HOST='%' \
