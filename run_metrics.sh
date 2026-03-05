@@ -8,20 +8,29 @@ DB_DATABASE="sbtest"
 POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
 #POOL_SIZES=(2)
 
-#THREADS=(1 4 16 32 64 128 256)
-THREADS=(128 256)
+THREADS=(1 4 16 32 64 128 256)
+#THREADS=(128 256)
 
-DURATION=900   # 900s 15 Minutes
+# --- DEBUG SETTINGS ---
+TABLE_ROWS=5000000
+WARMUP_RO_TIME=180
+WARMUP_RW_TIME=600
+DURATION=900
+
+# TABLE_ROWS=50000
+# WARMUP_RO_TIME=30
+# WARMUP_RW_TIME=30
+# DURATION=60
 
 DBMS_NAME="$1"
 DBMS_VER="$2"
-CONF_DIR="mysql/conf.d"
+CONF_D_DIR="mysql/conf.d"
 
 echo "============= Running benchmarks for ${DBMS_NAME}:${DBMS_VER} ============="
 
 if [[ "$DBMS_NAME" == "percona-server" ]]; then
     IMAGE_PREFIX="percona/"
-    CONF_DIR="my.cnf.d"
+    CONF_D_DIR="my.cnf.d"
 fi
 
 if [[ "$DBMS_NAME" == "mariadb" ]]; then
@@ -35,36 +44,32 @@ IMAGE_NAME="${IMAGE_PREFIX}${DBMS_NAME}:${DBMS_VER}"
 CONTAINER_NAME="dbms-benchmark-test"
 
 MYSQL_ROOT_PASSWORD="password"
-CONFIG_PATH="$HOME/configs/config.cnf"
-
-# --- DEBUG SETTINGS ---
-TABLE_ROWS=5000000
-WARMUP_RO_TIME=180
-WARMUP_RW_TIME=600
-
-
+CONFIG_DIR="$HOME/configs"
+CONFIG_PATH="$CONFIG_DIR/config.cnf"
+    
 server_wait() {
   # Wait for MySQL to be ready
   echo "Waiting for DB Server to initialize..."
 
-  until docker exec "$CONTAINER_NAME" "$ADMIN_TOOL" ping --host=127.0.0.1 -u"root" -p"$DB_PASS" --silent; do
-      sleep 2
+  until docker exec "$CONTAINER_NAME" "$ADMIN_TOOL" ping --host=127.0.0.1 -u"root" -p"$DB_PASS" 2>/dev/null; do
+    echo "Waiting..."       
+    sleep 2
   done
 }
 
 stop_container() {
   local CONTAINER=$1
   echo "Stopping container ${CONTAINER}"
-  docker container stop "$CONTAINER"
+  docker container stop "$CONTAINER" 2>/dev/null
   sleep 2
-  docker container rm "$CONTAINER"
+  docker container rm "$CONTAINER" 2>/dev/null
 }
 
 run_container() {
   local DIR=$1
   docker run --user mysql --rm --name "$CONTAINER_NAME" \
     --network host \
-    -v "${HOME}/configs:/etc/${CONF_DIR}" \
+    -v "${CONFIG_DIR}:/etc/${CONF_D_DIR}" \
     -e MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
     -e MYSQL_DATABASE="sbtest" \
     -e MYSQL_ROOT_HOST='%' \
@@ -78,13 +83,14 @@ stop_container "$CONTAINER_NAME"
 echo "Run container to detect the version of the server"
 
 BENCH_DIR="./benchmark_logs"
-rm "$CONFIG_PATH"
+echo "Removing old config if exists: $CONFIG_PATH"
+sudo rm -rf "$CONFIG_PATH"
 
 # --- THIS NEEDS TO BE DONE IF A VERSION IS "latest" ---
 run_container "$BENCH_DIR"
 server_wait 
 
-RAW_VERSION=$(mysql -h $DB_HOST -u $DB_USER -p$DB_PASS -N -e "SELECT VERSION();")
+RAW_VERSION=$(mysql -h $DB_HOST -u $DB_USER -p$DB_PASS -N -e "SELECT VERSION();" 2>/dev/null)
 MAJOR_VER=$(echo $RAW_VERSION | cut -d'.' -f1,2)
 IS_MARIA=$(echo $RAW_VERSION | grep -i "Maria" | wc -l)
 
@@ -93,10 +99,34 @@ mkdir -p $LOG_DIR
 
 echo "Detected: $RAW_VERSION (Major: $MAJOR_VER, MariaDB: $IS_MARIA)"
 
+check_innodb_buffer() {
+    local EXPECTED_GB=$1
+    echo ">>> Verifying InnoDB Buffer Pool: ${EXPECTED_GB}GB..."
+
+    # Get the value in bytes and divide by 1024^3 to get GB
+    # Note: MySQL returns an integer; we use shell arithmetic to convert
+    local ACTUAL_BYTES=$(mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -N -s -e "SELECT @@innodb_buffer_pool_size;" 2>/dev/null)
+    local ACTUAL_GB=$(( ACTUAL_BYTES / 1024 / 1024 / 1024 ))
+
+    if [ "$ACTUAL_GB" -ne "$EXPECTED_GB" ]; then
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        echo "CRITICAL ERROR: Buffer Pool is ${ACTUAL_GB}GB (Expected ${EXPECTED_GB}GB)"
+        echo "Aborting entire benchmark script immediately."
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        
+        docker stop "$CONTAINER_NAME" 2>/dev/null
+        # Immediate termination of the script
+        exit 1
+    fi
+
+    echo "Verification successful: Buffer Pool is ${ACTUAL_GB}GB."
+}
+
 # --- CONFIGURATION GENERATOR ---
 generate_config() {
     local SIZE=$1
     local CFG="/tmp/config.cnf"
+    rm "$CFG"
 
     # 1. Start Base Config
     echo "[mysqld]" > "$CFG"
@@ -154,11 +184,11 @@ generate_config() {
 
     # 4. Deploy Config
     # Ensure directory exists and copy
-    mkdir -p "$HOME/configs"
-    cp "$CFG" "$HOME/configs/config.cnf"
-    
+    mkdir -p "$CONFIG_DIR"
+    sudo cp "$CFG" "$CONFIG_PATH"
+
     # Optional: Fix permissions to ensure Docker mysql user can read it
-    chmod 644 "$HOME/configs/config.cnf"
+    sudo chmod 644 "$CONFIG_PATH"
 }
 
 
@@ -204,6 +234,7 @@ for SIZE in "${POOL_SIZES[@]}"; do
   run_container "$LOG_DIR" "$CONTAINER_NAME"
   server_wait "$CONTAINER_NAME"
   echo "Container restarted with custom config."
+  check_innodb_buffer $SIZE
   init_data
   
   # 2. WARMUP (Reads then Writes)
