@@ -90,7 +90,7 @@ check_innodb_buffer() {
 generate_config() {
     local SIZE=$1
     local CFG="/tmp/config.cnf"
-    rm -f "$CFG"
+    sudo rm -f "$CFG"
 
     echo "[mysqld]" > "$CFG"
     echo "innodb_buffer_pool_size = ${SIZE}G" >> "$CFG"
@@ -172,7 +172,7 @@ init_data() {
 
 remove_old_config() {
     echo "Cleaning up old config on remote..."
-    remote_exec "rm -f $REMOTE_CONFIG_DIR/config.cnf"
+    remote_exec "sudo rm -f $REMOTE_CONFIG_DIR/config.cnf"
 }
 
 # --- MAIN EXECUTION ---
