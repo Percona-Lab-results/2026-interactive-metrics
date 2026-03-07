@@ -5,11 +5,11 @@ DB_HOST="127.0.0.1"   # REPLACE ME
 DB_USER="root"
 DB_PASS="password"
 DB_DATABASE="sbtest"
-POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
-#POOL_SIZES=(2)
+#POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
+POOL_SIZES=(32)
 
-THREADS=(1 4 16 32 64 128 256)
-#THREADS=(128 256)
+#THREADS=(1 4 16 32 64 128 256)
+THREADS=(128)
 
 # --- DEBUG SETTINGS ---
 TABLE_ROWS=5000000
@@ -122,6 +122,27 @@ check_innodb_buffer() {
     echo "Verification successful: Buffer Pool is ${ACTUAL_GB}GB."
 }
 
+check_vars_status() {
+    local FILE_PREFIX=$1
+    echo ">>> Capturing server variables and status..."
+
+    # Capture MySQL server variables into file
+    mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -N -e "SHOW VARIABLES;" > "${FILE_PREFIX}.vars" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo "    Variables saved to: ${FILE_PREFIX}.vars"
+    else
+        echo "    ERROR: Failed to capture variables"
+    fi
+
+    # Capture MySQL server status into file
+    mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -N -e "SHOW STATUS;" > "${FILE_PREFIX}.status" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo "    Status saved to: ${FILE_PREFIX}.status"
+    else
+        echo "    ERROR: Failed to capture status"
+    fi
+}
+
 # --- CONFIGURATION GENERATOR ---
 generate_config() {
     local SIZE=$1
@@ -215,7 +236,7 @@ init_data() {
 
   echo ">>> Create tables and insert data..."
   sysbench oltp_read_only --mysql-host=$DB_HOST --mysql-user=$DB_USER --mysql-password=$DB_PASS \
-    --tables=20 --table-size=$TABLE_ROWS --threads=16 prepare
+    --tables=20 --table-size=$TABLE_ROWS --threads=64 prepare
 }
 
 
@@ -235,6 +256,7 @@ for SIZE in "${POOL_SIZES[@]}"; do
   server_wait "$CONTAINER_NAME"
   echo "Container restarted with custom config."
   check_innodb_buffer $SIZE
+  check_vars_status "${LOG_DIR}/Tier${SIZE}G"
   init_data
   
   # 2. WARMUP (Reads then Writes)
