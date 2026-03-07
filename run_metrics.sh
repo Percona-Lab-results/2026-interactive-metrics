@@ -161,6 +161,7 @@ generate_config() {
     echo "table_open_cache = 200000" >> "$CFG"
     echo "table_open_cache_instances = 64" >> "$CFG"
     echo "back_log = 3500" >> "$CFG"
+    echo "connect_timeout = 60" >> "$CFG"
 
     # 2. Instance Sizing
     if [ "$SIZE" -lt 8 ]; then
