@@ -38,16 +38,16 @@ jobs:
       #   id: changed-files
       #   uses: tj-actions/changed-files@v45
 
-      - name: Run R script
-        # env:
-        #   ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
-        run: Rscript visuals/mpstat_plot.R
-
-      - name: Generate Index Page
-        run: Rscript visuals/make_index.R
+      # - name: Run R script
+      #  # env:
+      #  #   ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+      #  run: Rscript visuals/mpstat_plot.R
 
       - name: Generate Throughput Report
         run: Rscript visuals/throughput_report.R
+
+      - name: Generate Index Page
+        run: Rscript visuals/make_index.R
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
