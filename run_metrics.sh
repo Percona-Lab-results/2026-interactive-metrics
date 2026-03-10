@@ -5,11 +5,11 @@ DB_HOST="127.0.0.1"   # REPLACE ME
 DB_USER="root"
 DB_PASS="password"
 DB_DATABASE="sbtest"
-#POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
-POOL_SIZES=(32)
+POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
+#POOL_SIZES=(32)
 
-#THREADS=(1 4 16 32 64 128 256)
-THREADS=(128)
+THREADS=(1 4 16 32 64 128 256)
+#THREADS=(256)
 
 # --- DEBUG SETTINGS ---
 TABLE_ROWS=5000000
@@ -127,17 +127,17 @@ check_vars_status() {
     echo ">>> Capturing server variables and status..."
 
     # Capture MySQL server variables into file
-    mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -N -e "SHOW VARIABLES;" > "${FILE_PREFIX}.vars" 2>/dev/null
+    mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -N -e "SHOW VARIABLES;" > "${FILE_PREFIX}.vars.txt" 2>/dev/null
     if [ $? -eq 0 ]; then
-        echo "    Variables saved to: ${FILE_PREFIX}.vars"
+        echo "    Variables saved to: ${FILE_PREFIX}.vars.txt"
     else
         echo "    ERROR: Failed to capture variables"
     fi
 
     # Capture MySQL server status into file
-    mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -N -e "SHOW STATUS;" > "${FILE_PREFIX}.status" 2>/dev/null
+    mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -N -e "SHOW STATUS;" > "${FILE_PREFIX}.status.txt" 2>/dev/null
     if [ $? -eq 0 ]; then
-        echo "    Status saved to: ${FILE_PREFIX}.status"
+        echo "    Status saved to: ${FILE_PREFIX}.status.txt"
     else
         echo "    ERROR: Failed to capture status"
     fi
@@ -218,13 +218,13 @@ generate_config() {
 start_metrics() {
     local PREFIX=$1
     echo " --- START METRICS ---"
-    echo "iostat -dxm 1 > ${PREFIX}.iostat & echo \$! > /tmp/iostat.pid"
-    echo "vmstat 1 > ${PREFIX}.vmstat & echo \$! > /tmp/vmstat.pid"
-    echo "mpstat -P ALL 1 > ${PREFIX}.mpstat & echo \$! > /tmp/mpstat.pid"
+    echo "iostat -dxm 1 > ${PREFIX}.iostat.txt & echo \$! > /tmp/iostat.pid"
+    echo "vmstat 1 > ${PREFIX}.vmstat.txt & echo \$! > /tmp/vmstat.pid"
+    echo "mpstat -P ALL 1 > ${PREFIX}.mpstat.txt & echo \$! > /tmp/mpstat.pid"
 
-    iostat -dxm 1 > ${PREFIX}.iostat & echo $! > /tmp/iostat.pid
-    vmstat 1 > ${PREFIX}.vmstat & echo $! > /tmp/vmstat.pid
-    mpstat -P ALL 1 > ${PREFIX}.mpstat & echo $! > /tmp/mpstat.pid
+    iostat -dxm 1 > ${PREFIX}.iostat.txt & echo $! > /tmp/iostat.pid
+    vmstat 1 > ${PREFIX}.vmstat.txt & echo $! > /tmp/vmstat.pid
+    mpstat -P ALL 1 > ${PREFIX}.mpstat.txt & echo $! > /tmp/mpstat.pid
 }
 
 stop_metrics() {

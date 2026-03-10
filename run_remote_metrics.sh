@@ -86,9 +86,9 @@ start_metrics() {
     echo " --- START REMOTE METRICS ---"
     # Note: We background these on the remote host and store PIDs there
     remote_exec "mkdir -p \$(dirname $PREFIX)"
-    remote_exec "iostat -dxm 1 > ${PREFIX}.iostat 2>/dev/null & echo \$! > /tmp/iostat.pid"
-    remote_exec "vmstat 1 > ${PREFIX}.vmstat 2>/dev/null & echo \$! > /tmp/vmstat.pid"
-    remote_exec "mpstat -P ALL 1 > ${PREFIX}.mpstat 2>/dev/null & echo \$! > /tmp/mpstat.pid"
+    remote_exec "iostat -dxm 1 > ${PREFIX}.iostat.txt 2>/dev/null & echo \$! > /tmp/iostat.pid"
+    remote_exec "vmstat 1 > ${PREFIX}.vmstat.txt 2>/dev/null & echo \$! > /tmp/vmstat.pid"
+    remote_exec "mpstat -P ALL 1 > ${PREFIX}.mpstat.txt 2>/dev/null & echo \$! > /tmp/mpstat.pid"
 }
 
 stop_metrics() {

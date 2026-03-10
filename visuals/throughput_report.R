@@ -10,8 +10,8 @@ library(htmltools)
 # Define the base directory
 base_dir <- "benchmark_logs"
 
-# 1. Find all .sysbench files recursively
-files <- list.files(path = base_dir, pattern = "\\.sysbench$", recursive = TRUE, full.names = TRUE)
+# 1. Find all .sysbench.txt files recursively
+files <- list.files(path = base_dir, pattern = "\\.sysbench\\.txt$", recursive = TRUE, full.names = TRUE)
 
 # Function to extract data and format the header
 process_benchmark_file <- function(file_path) {
@@ -24,7 +24,7 @@ process_benchmark_file <- function(file_path) {
   db_type <- path_parts[2]
   version <- path_parts[3]
   
-  # Extract info from filename (e.g., Tier32G_RW_64th.sysbench)
+  # Extract info from filename (e.g., Tier32G_RW_64th.sysbench.txt)
   file_name <- tail(path_parts, 1)
   memory <- str_extract(file_name, "\\d+G") %>% str_replace("G", "G")
   concurrency <- str_extract(file_name, "\\d+th")
