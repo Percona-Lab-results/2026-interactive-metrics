@@ -494,8 +494,8 @@ query_cache_strip_comments	OFF
 query_cache_type	OFF
 query_cache_wlock_invalidate	OFF
 query_prealloc_size	32768
-rand_seed1	446642236
-rand_seed2	682746095
+rand_seed1	647952869
+rand_seed2	339982396
 range_alloc_block_size	4096
 read_binlog_speed_limit	0
 read_buffer_size	131072
@@ -630,7 +630,7 @@ thread_pool_size	80
 thread_pool_stall_limit	500
 thread_stack	299008
 time_zone	SYSTEM
-timestamp	1772887626.967292
+timestamp	1773145347.654642
 tls_version	TLSv1.2,TLSv1.3
 tmp_disk_table_size	18446744073709551615
 tmp_memory_table_size	16777216

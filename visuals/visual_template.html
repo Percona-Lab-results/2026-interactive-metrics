@@ -203,6 +203,8 @@ function buildTraces() {
           name: `${server} | ${mem}G`,
           x: pts.map(p=>p.threads),
           y: pts.map(p=>p[metric]),
+          customdata: pts.map(p=>({server: p.server, mem_gb: p.mem_gb, threads: p.threads, tps: p.tps, qps: p.qps})),
+          marker: { size: 10 },
         });
       });
     });
@@ -220,6 +222,8 @@ function buildTraces() {
         name: `${server} | ${anchorThreads} threads`,
         x: pts.map(p=>p.mem_gb),
         y: pts.map(p=>p[metric]),
+        customdata: pts.map(p=>({server: p.server, mem_gb: p.mem_gb, threads: p.threads, tps: p.tps, qps: p.qps})),
+        marker: { size: 10 },
       });
     });
   }
@@ -244,14 +248,82 @@ function layoutForMode() {
       tickvals: (xMode === "threads") ? [1,4,16,32,64,128,256] : undefined,
       ticktext: (xMode === "threads") ? ["1","4","16","32","64","128","256"] : undefined,
     },
-    yaxis: { title: yTitle },
+    yaxis: { title: yTitle, rangemode: 'tozero' },
     margin: { l: 70, r: 20, t: 60, b: 60 },
-    hovermode: "x unified",
+    hovermode: "closest",
   };
 }
 
+const BASE_URL = "https://percona-lab-results.github.io/2026-interactive-metrics/benchmark_logs";
+const LOG_EXTS = ["iostat.txt", "mpstat.txt", "vmstat.txt"];
+
+function serverToPath(server) {
+  const idx = server.indexOf(' ');
+  return server.slice(0, idx) + '/' + server.slice(idx + 1);
+}
+
+function buildFileBase(mem_gb, threads) {
+  return `Tier${mem_gb}G_RW_${threads}th`;
+}
+
+function showDownloadModal(server, mem_gb, threads, tps, qps) {
+  const path = serverToPath(server);
+  const fileBase = buildFileBase(mem_gb, threads);
+  document.getElementById('dlTitle').textContent = server;
+  document.getElementById('dlSubtitle').textContent =
+    `Memory: ${mem_gb}G  ·  Threads: ${threads}  ·  TPS: ${tps.toLocaleString()}  ·  QPS: ${qps.toLocaleString()}`;
+  const list = document.getElementById('dlLinks');
+  list.innerHTML = '';
+
+  // Per-thread files: Tier{N}G_RW_{T}th.iostat.txt etc.
+  LOG_EXTS.forEach(ext => {
+    const url = `${BASE_URL}/${path}/${fileBase}.${ext}`;
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <span class="ext">.${ext}</span>
+      <span class="fname">${fileBase}.${ext}</span>
+      <span class="actions">
+        <a class="btn-open" href="${url}" target="_blank" rel="noopener" title="Open in new tab">&#8599; Open</a>
+      </span>`;
+    list.appendChild(li);
+  });
+
+  // Per-memory files: Tier{N}G.status.txt and Tier{N}G.vars.txt
+  ["status.txt", "vars.txt"].forEach(ext => {
+    const fname = `Tier${mem_gb}G.${ext}`;
+    const url = `${BASE_URL}/${path}/${fname}`;
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <span class="ext">.${ext}</span>
+      <span class="fname">${fname}</span>
+      <span class="actions">
+        <a class="btn-open" href="${url}" target="_blank" rel="noopener" title="Open in new tab">&#8599; Open</a>
+      </span>`;
+    list.appendChild(li);
+  });
+
+  document.getElementById('dlOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('dlOverlay').classList.remove('open');
+}
+
+function attachPlotlyClick() {
+  const chartDiv = document.getElementById('chart');
+  chartDiv.removeAllListeners('plotly_click');
+  chartDiv.on('plotly_click', function(eventData) {
+    if (!eventData || !eventData.points || !eventData.points.length) return;
+    const pt = eventData.points[0];
+    const d = pt.customdata;
+    if (!d) return;
+    showDownloadModal(d.server, d.mem_gb, d.threads, d.tps, d.qps);
+  });
+}
+
 function render() {
-  Plotly.react("chart", buildTraces(), layoutForMode(), {responsive: true});
+  Plotly.react("chart", buildTraces(), layoutForMode(), {responsive: true})
+    .then(attachPlotlyClick);
 }
 
 function init() {
@@ -301,117 +373,14 @@ window.addEventListener('load', function() { loadPlotly(init); });
   </div>
 </div>
 
+
 <script>
-const BASE_URL = "https://percona-lab-results.github.io/2026-interactive-metrics/benchmark_logs";
-const LOG_EXTS = ["iostat.txt", "mpstat.txt", "vmstat.txt"];
-
-function serverToPath(server) {
-  // "percona-server 5.7.44-48" => "percona-server/5.7.44-48"
-  // "mariadb 10.11.16-MariaDB-ubu2204" => "mariadb/10.11.16-MariaDB-ubu2204"
-  const idx = server.indexOf(' ');
-  const dbType = server.slice(0, idx);
-  const version = server.slice(idx + 1);
-  return dbType + '/' + version;
-}
-
-function buildFileBase(server, mem_gb, threads) {
-  return `Tier${mem_gb}G_RW_${threads}th`;
-}
-
-function showDownloadModal(server, mem_gb, threads, tps, qps) {
-  const path = serverToPath(server);
-  const fileBase = buildFileBase(server, mem_gb, threads);
-
-  document.getElementById('dlTitle').textContent = server;
-  document.getElementById('dlSubtitle').textContent =
-    `Memory: ${mem_gb}G  ·  Threads: ${threads}  ·  TPS: ${tps.toLocaleString()}  ·  QPS: ${qps.toLocaleString()}`;
-
-  const list = document.getElementById('dlLinks');
-  list.innerHTML = '';
-  LOG_EXTS.forEach(ext => {
-    const url = `${BASE_URL}/${path}/${fileBase}.${ext}`;
-    const li = document.createElement('li');
-    li.innerHTML = `
-      <span class="ext">.${ext}</span>
-      <span class="fname">${fileBase}.${ext}</span>
-      <span class="actions">
-        <a class="btn-open" href="${url}" target="_blank" rel="noopener" title="Open in new tab">
-          &#8599; Open
-        </a>
-      </span>`;
-    list.appendChild(li);
-  });
-
-  document.getElementById('dlOverlay').classList.add('open');
-}
-
-function closeModal() {
-  document.getElementById('dlOverlay').classList.remove('open');
-}
-
 document.getElementById('dlClose').addEventListener('click', closeModal);
 document.getElementById('dlOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
 });
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeModal();
-});
-
-// Hook into Plotly click events after chart renders
-function attachPlotlyClick() {
-  const chartDiv = document.getElementById('chart');
-  chartDiv.on('plotly_click', function(eventData) {
-    if (!eventData || !eventData.points || !eventData.points.length) return;
-    const pt = eventData.points[0];
-
-    // Trace name format: "server | Xvalue"  e.g. "mysql 8.0.45 | 12G" or "mysql 8.0.45 | 64 threads"
-    const traceName = pt.data.name;
-    const xMode = el("xSel").value;
-
-    let server, mem_gb, threads;
-
-    if (xMode === "threads") {
-      // name = "server | Ng", x = thread count
-      const pipeIdx = traceName.lastIndexOf(' | ');
-      server = traceName.slice(0, pipeIdx);
-      mem_gb = parseInt(traceName.slice(pipeIdx + 3));  // strips trailing 'G'
-      threads = pt.x;
-    } else {
-      // name = "server | N threads", x = mem_gb
-      const pipeIdx = traceName.lastIndexOf(' | ');
-      server = traceName.slice(0, pipeIdx);
-      threads = parseInt(traceName.slice(pipeIdx + 3));
-      mem_gb = pt.x;
-    }
-
-    // Find matching data point for tps/qps
-    const match = DATA.find(r => r.server === server && r.mem_gb === mem_gb && r.threads === threads);
-    if (!match) return;
-
-    showDownloadModal(server, mem_gb, threads, match.tps, match.qps);
-  });
-}
-
-// Patch render() to re-attach click handler after each redraw
-const _origRender = window.render;
-// Override render defined in the init closure by patching after load
-window.addEventListener('load', function() {
-  // Wait for Plotly + init to complete, then patch
-  setTimeout(function() {
-    const chartDiv = document.getElementById('chart');
-    if (chartDiv && chartDiv.on) attachPlotlyClick();
-    // Also re-attach whenever Plotly reacts (after filter changes)
-    const observer = new MutationObserver(function() {
-      if (chartDiv.on) { attachPlotlyClick(); observer.disconnect(); }
-    });
-    observer.observe(chartDiv, { childList: true, subtree: true });
-    // Re-attach on every selector change since Plotly.react replaces internals
-    ["serverSel","memSel","metricSel","xSel","threadsAnchor","memAnchor"].forEach(id => {
-      document.getElementById(id).addEventListener('change', function() {
-        setTimeout(attachPlotlyClick, 100);
-      });
-    });
-  }, 500);
 });
 </script>
 </body>

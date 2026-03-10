@@ -276,9 +276,9 @@ Handler_update	0
 Handler_write	0
 Innodb_adaptive_hash_hash_searches	0
 Innodb_adaptive_hash_non_hash_searches	0
-Innodb_background_log_sync	2
+Innodb_background_log_sync	4
 Innodb_buffer_pool_dump_status	
-Innodb_buffer_pool_load_status	Buffer pool(s) load completed at 260307 10:00:52
+Innodb_buffer_pool_load_status	Buffer pool(s) load completed at 260310 12:21:30
 Innodb_buffer_pool_resize_status	
 Innodb_buffer_pool_load_incomplete	OFF
 Innodb_buffer_pool_pages_data	283
@@ -323,7 +323,7 @@ Innodb_lsn_current	45498
 Innodb_lsn_flushed	45498
 Innodb_lsn_last_checkpoint	45482
 Innodb_master_thread_active_loops	0
-Innodb_master_thread_idle_loops	2
+Innodb_master_thread_idle_loops	4
 Innodb_max_trx_id	16
 Innodb_mem_adaptive_hash	0
 Innodb_mem_dictionary	212432008
@@ -386,7 +386,7 @@ Master_gtid_wait_timeouts	0
 Max_memory_used	86504
 Max_statement_time_exceeded	0
 Max_used_connections	1
-Max_used_connections_time	2026-03-07 10:00:54
+Max_used_connections_time	2026-03-10 12:21:33
 Memory_used	86504
 Memory_used_initial	34693704288
 Not_flushed_delayed_rows	0
@@ -440,7 +440,7 @@ Qcache_not_cached	0
 Qcache_queries_in_cache	0
 Qcache_total_blocks	0
 Queries	9
-Query_time	0.000035
+Query_time	0.000036
 Questions	2
 Resultset_metadata_skipped	0
 Rows_read	0
@@ -499,8 +499,8 @@ Ssl_ctx_verify_mode	5
 Ssl_default_timeout	7200
 Ssl_finished_accepts	4
 Ssl_finished_connects	0
-Ssl_server_not_after	Mar  4 10:00:52 2036 GMT
-Ssl_server_not_before	Mar  7 10:00:52 2026 GMT
+Ssl_server_not_after	Mar  7 12:21:32 2036 GMT
+Ssl_server_not_before	Mar 10 12:21:32 2026 GMT
 Ssl_session_cache_hits	0
 Ssl_session_cache_misses	0
 Ssl_session_cache_mode	SERVER
