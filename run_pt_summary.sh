@@ -2,8 +2,11 @@
 # parse_pt_summary.sh
 # Extracts key fields from a Percona Toolkit pt-summary output file
 
-wget http://percona.com/get/pt-summary 
-chmod +x pt-summary
+if [ ! -f ./pt-summary ]; then
+  wget http://percona.com/get/pt-summary 
+  chmod +x pt-summary
+fi
+
 mkdir benchmark_logs
 
 SUMMARY_FULL="benchmark_logs/pt-summary-full.txt"

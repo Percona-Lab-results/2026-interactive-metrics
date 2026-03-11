@@ -8,14 +8,7 @@ DB_DATABASE="sbtest"
 POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
 #POOL_SIZES=(32)
 
-#THREADS=(1 4 16 32 64 128 256 512)
-
-if [[ "$DBMS_NAME" == "mysql" ]]; then
-    THREADS=(256 512)
-#THREADS=(256)
-else
-    THREADS=(512)
-fi
+THREADS=(1 4 16 32 64 128 256 512)
 
 # --- DEBUG SETTINGS ---
 TABLE_ROWS=5000000
@@ -24,9 +17,9 @@ WARMUP_RW_TIME=600
 DURATION=900
 
 # TABLE_ROWS=50000
-# WARMUP_RO_TIME=30
-# WARMUP_RW_TIME=30
-# DURATION=60
+# WARMUP_RO_TIME=10
+# WARMUP_RW_TIME=10
+# DURATION=30
 
 DBMS_NAME="$1"
 DBMS_VER="$2"
@@ -53,9 +46,17 @@ MYSQL_ROOT_PASSWORD="password"
 CONFIG_DIR="$HOME/configs"
 CONFIG_PATH="$CONFIG_DIR/config.cnf"
 
+
 server_wait() {
   # Wait for MySQL to be ready
   echo "Waiting for DB Server to initialize..."
+  sleep 5
+
+  # Check that the container exists and is running
+  if [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null)" != "true" ]; then
+    echo "Fatal error: container '$CONTAINER_NAME' is not running or does not exist. Terminating script."
+    exit 1
+  fi
 
   until docker exec "$CONTAINER_NAME" "$ADMIN_TOOL" ping --host=127.0.0.1 -u"root" -p"$DB_PASS" 2>/dev/null; do
     echo "Waiting..."       
@@ -77,14 +78,9 @@ run_container() {
     --network host \
     -v "${CONFIG_DIR}:/etc/${CONF_D_DIR}" \
     -e MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
-    -e MYSQL_DATABASE="sbtest" \
+    -e MYSQL_DATABASE="$DB_DATABASE" \
     -e MYSQL_ROOT_HOST='%' \
     -d ${IMAGE_NAME}
-}
-
-run_mysql_summary() {
-    echo ">>> Running pt-mysql-summary for ${DBMS_NAME}:${DBMS_VER}..."
-    ./pt-mysql-summary --host="$DB_HOST" --user="$DB_USER" --password="$DB_PASS" > "${LOG_DIR}/pt-mysql-summary.txt"
 }
 
 # Make sure no containers are running at this stage.
@@ -155,6 +151,7 @@ check_vars_status() {
 }
 
 run_mysql_summary() {
+    local FILE_PREFIX=$1
     ./pt-mysql-summary --host="$DB_HOST" --user="$DB_USER" --password="$DB_PASS" > "${FILE_PREFIX}-pt-mysql-summary.txt"
     if [ $? -eq 0 ]; then
         echo "    Server summary saved to: ${FILE_PREFIX}-pt-mysql-summary.txt"
@@ -184,6 +181,18 @@ generate_config() {
     echo "back_log = 3500" >> "$CFG"
     echo "connect_timeout = 60" >> "$CFG"
     echo "character_set_server = utf8mb4" >> "$CFG"
+
+    echo "innodb_doublewrite = 1" >> "$CFG"
+    echo "innodb_flush_log_at_trx_commit = 1" >> "$CFG"
+    echo "innodb_flush_method = O_DIRECT" >> "$CFG"
+    echo "innodb_log_buffer_size = 64M" >> "$CFG"
+
+    # In 5.7, server_id must be specified if binary logging is enabled, otherwise the server is not allowed to start.
+    echo "server_id = 1" >> "$CFG"
+    echo "log_bin = binlog" >> "$CFG"
+    echo "sync_binlog = 1" >> "$CFG"
+    echo "binlog_format = ROW" >> "$CFG"
+    echo "binlog_row_image = MINIMAL" >> "$CFG"
 
     # 2. Instance Sizing
     if [ "$SIZE" -lt 8 ]; then
@@ -230,6 +239,7 @@ generate_config() {
     # Ensure directory exists and copy
     mkdir -p "$CONFIG_DIR"
     sudo cp "$CFG" "$CONFIG_PATH"
+    cp "$CFG" "${LOG_DIR}/Tier${SIZE}G.cnf.txt"
 
     # Optional: Fix permissions to ensure Docker mysql user can read it
     sudo chmod 644 "$CONFIG_PATH"
@@ -259,7 +269,7 @@ init_data() {
 
   echo ">>> Create tables and insert data..."
   sysbench oltp_read_only --mysql-host=$DB_HOST --mysql-user=$DB_USER --mysql-password=$DB_PASS \
-    --tables=20 --table-size=$TABLE_ROWS --threads=64 prepare
+    --mysql-db=$DB_DATABASE --tables=20 --table-size=$TABLE_ROWS --threads=64 prepare
 }
 
 
@@ -283,16 +293,16 @@ for SIZE in "${POOL_SIZES[@]}"; do
   init_data
   run_mysql_summary "${LOG_DIR}/Tier${SIZE}G"
 
-  continue # SKIP BENCHMARKS FOR NOW, REMOVE ME WHEN READY
+  # continue # SKIP BENCHMARKS FOR NOW, REMOVE ME WHEN READY
   
   # 2. WARMUP (Reads then Writes)
   echo ">>> Warmup A: Read-Only (${WARMUP_RO_TIME}s)..."
   sysbench oltp_read_only --mysql-host=$DB_HOST --mysql-user=$DB_USER --mysql-password=$DB_PASS \
-    --tables=20 --table-size=$TABLE_ROWS --threads=16 --time=$WARMUP_RO_TIME run
+    --mysql-db=$DB_DATABASE --tables=20 --table-size=$TABLE_ROWS --threads=16 --time=$WARMUP_RO_TIME run
 
   echo ">>> Warmup B: Dirty Writes (${WARMUP_RW_TIME}s)..."
   sysbench oltp_read_write --mysql-host=$DB_HOST --mysql-user=$DB_USER --mysql-password=$DB_PASS \
-    --tables=20 --table-size=$TABLE_ROWS --threads=64 --time=$WARMUP_RW_TIME run
+    --mysql-db=$DB_DATABASE --tables=20 --table-size=$TABLE_ROWS --threads=64 --time=$WARMUP_RW_TIME run
 
   # 3. MEASUREMENT
   for THREAD in "${THREADS[@]}"; do
@@ -305,15 +315,18 @@ for SIZE in "${POOL_SIZES[@]}"; do
         --mysql-host=$DB_HOST \
         --mysql-user=$DB_USER \
         --mysql-password=$DB_PASS \
+        --mysql-db=$DB_DATABASE \
         --tables=20 \
         --table-size=$TABLE_ROWS \
         --threads=$THREAD \
         --time=$DURATION \
         --report-interval=1 \
+        --rand-type=uniform \
+        --mysql-ssl=off \
         run > "${FILE_PREFIX}.sysbench.txt"
 
     stop_metrics
-    sleep 15
+    sleep 10
   done
 
   stop_container "$CONTAINER_NAME"
