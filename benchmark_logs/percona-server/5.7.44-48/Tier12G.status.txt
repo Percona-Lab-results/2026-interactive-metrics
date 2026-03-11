@@ -4,11 +4,11 @@ Binlog_snapshot_file
 Binlog_snapshot_position	0
 Binlog_cache_disk_use	0
 Binlog_cache_use	0
-Binlog_snapshot_gtid_executed	
+Binlog_snapshot_gtid_executed	not-in-consistent-snapshot
 Binlog_stmt_cache_disk_use	0
 Binlog_stmt_cache_use	0
 Bytes_received	304
-Bytes_sent	210
+Bytes_sent	214
 Com_admin_commands	0
 Com_assign_to_keycache	0
 Com_alter_db	0
@@ -202,14 +202,14 @@ Handler_update	0
 Handler_write	0
 Innodb_background_log_sync	1
 Innodb_buffer_pool_dump_status	Dumping of buffer pool not started
-Innodb_buffer_pool_load_status	Buffer pool(s) load completed at 260310 12:17:24
+Innodb_buffer_pool_load_status	Buffer pool(s) load completed at 260311 15:41:15
 Innodb_buffer_pool_resize_status	
-Innodb_buffer_pool_pages_data	429
-Innodb_buffer_pool_bytes_data	7028736
-Innodb_buffer_pool_pages_dirty	0
-Innodb_buffer_pool_bytes_dirty	0
-Innodb_buffer_pool_pages_flushed	36
-Innodb_buffer_pool_pages_free	785907
+Innodb_buffer_pool_pages_data	437
+Innodb_buffer_pool_bytes_data	7159808
+Innodb_buffer_pool_pages_dirty	36
+Innodb_buffer_pool_bytes_dirty	589824
+Innodb_buffer_pool_pages_flushed	0
+Innodb_buffer_pool_pages_free	785899
 Innodb_buffer_pool_pages_LRU_flushed	0
 Innodb_buffer_pool_pages_made_not_young	0
 Innodb_buffer_pool_pages_made_young	0
@@ -219,35 +219,35 @@ Innodb_buffer_pool_pages_total	786336
 Innodb_buffer_pool_read_ahead_rnd	0
 Innodb_buffer_pool_read_ahead	0
 Innodb_buffer_pool_read_ahead_evicted	0
-Innodb_buffer_pool_read_requests	1342
-Innodb_buffer_pool_reads	396
+Innodb_buffer_pool_read_requests	1384
+Innodb_buffer_pool_reads	404
 Innodb_buffer_pool_wait_free	0
 Innodb_buffer_pool_write_requests	325
 Innodb_checkpoint_age	19
 Innodb_checkpoint_max_age	3478212404
-Innodb_data_fsyncs	6
+Innodb_data_fsyncs	4
 Innodb_data_pending_fsyncs	0
 Innodb_data_pending_reads	0
 Innodb_data_pending_writes	0
-Innodb_data_read	6558720
-Innodb_data_reads	421
-Innodb_data_writes	81
-Innodb_data_written	590848
-Innodb_dblwr_pages_written	2
-Innodb_dblwr_writes	1
+Innodb_data_read	6689792
+Innodb_data_reads	432
+Innodb_data_writes	44
+Innodb_data_written	1024
+Innodb_dblwr_pages_written	0
+Innodb_dblwr_writes	0
 Innodb_ibuf_free_list	0
 Innodb_ibuf_segment_size	2
 Innodb_log_waits	0
 Innodb_log_write_requests	0
 Innodb_log_writes	1
-Innodb_lsn_current	12440899
-Innodb_lsn_flushed	12440899
-Innodb_lsn_last_checkpoint	12440880
+Innodb_lsn_current	12441128
+Innodb_lsn_flushed	12441128
+Innodb_lsn_last_checkpoint	12441109
 Innodb_master_thread_active_loops	1
 Innodb_master_thread_idle_loops	0
 Innodb_max_trx_id	1795
 Innodb_mem_adaptive_hash	204014528
-Innodb_mem_dictionary	51133605
+Innodb_mem_dictionary	51150192
 Innodb_oldest_view_low_limit_trx_id	0
 Innodb_os_log_fsyncs	2
 Innodb_os_log_pending_fsyncs	0
@@ -255,9 +255,9 @@ Innodb_os_log_pending_writes	0
 Innodb_os_log_written	512
 Innodb_page_size	16384
 Innodb_pages_created	34
-Innodb_pages_read	395
-Innodb_pages0_read	13
-Innodb_pages_written	36
+Innodb_pages_read	403
+Innodb_pages0_read	16
+Innodb_pages_written	0
 Innodb_purge_trx_id	0
 Innodb_purge_undo_no	0
 Innodb_row_lock_current_waits	0
@@ -269,7 +269,7 @@ Innodb_rows_deleted	0
 Innodb_rows_inserted	0
 Innodb_rows_read	8
 Innodb_rows_updated	0
-Innodb_num_open_files	16
+Innodb_num_open_files	19
 Innodb_truncated_status_writes	0
 Innodb_available_undo_logs	128
 Innodb_secondary_index_triggered_cluster_reads	0
@@ -314,14 +314,14 @@ Max_execution_time_exceeded	0
 Max_execution_time_set	0
 Max_execution_time_set_failed	0
 Max_used_connections	1
-Max_used_connections_time	2026-03-10 12:17:25
+Max_used_connections_time	2026-03-11 15:41:16
 Not_flushed_delayed_rows	0
 Ongoing_anonymous_transaction_count	0
-Open_files	14
+Open_files	16
 Open_streams	0
-Open_table_definitions	106
-Open_tables	101
-Opened_files	140
+Open_table_definitions	109
+Open_tables	104
+Opened_files	152
 Opened_table_definitions	0
 Opened_tables	0
 Performance_schema_accounts_lost	0
@@ -365,7 +365,7 @@ Qcache_queries_in_cache	0
 Qcache_total_blocks	0
 Queries	11
 Questions	2
-Rsa_public_key	-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArkqvxFxLUmI6r9Umwmvq\nNhBvGVHmWUHaoAogTE2KsQpYl5sLf5k/lZi432couAraO0VRR6O1j2Qae1zqwWzP\nVIpNY0nVVQCPjJ0lwjShYFAkjrP8RVltKOlSG5DNq/cPU1dOIVoLUEFCPs1FxhP/\ntYcMFjwpVc4E5ZjXfHqLtrP99igTLkp9Hh/qsEQF57czxTcLr3StCTIWc1pXx1r3\nAA5dL3ui5eBUd3CxxemuDGiXYXz0aVX8mRNXuMxzbZRVAwonzLXO/TJo0QOaaMXt\nz/IhtcwH8ipfbpGduh2hwrnLT23U/TXRT9rTp6sTjZvAdrzJCVS1QnqY5p81g2vV\n/wIDAQAB\n-----END PUBLIC KEY-----\n
+Rsa_public_key	-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA052EG+U4HacIu34UAJvf\n/M7mtj10uMsMkpSAp//qg5hLOWmtuivkpnY7MqgsZqqbenFkC/bdpzZGnasbgKAH\n6sI7KkGBiVt1yL0fWyeVxzjTLoZ+DHHTQlQB7qDFLg4DRFUWv6Qrxx6xPTSvol/D\nzNK2SSm5xW7r97Nz7L4tnKUemq99WnPq1I6wdwnpUxHR/gkkuYTrxJmH03xvKL8k\n8hfTurGoBV80OqhUDD8EzEaQrPl/uUG+zHGzkjMVkyakhLNLfPlrItyg1ijyrElD\nYzbxu5X1Abp8m2lb014jsVL/vmI7+Gof4OR+nnfAAyJFqT4SWxooX3T9ALVbRv1Z\nXQIDAQAB\n-----END PUBLIC KEY-----\n
 Select_full_join	0
 Select_full_range_join	0
 Select_range	0
@@ -390,8 +390,8 @@ Ssl_ctx_verify_mode	5
 Ssl_default_timeout	7200
 Ssl_finished_accepts	4
 Ssl_finished_connects	0
-Ssl_server_not_after	Mar  7 12:17:16 2036 GMT
-Ssl_server_not_before	Mar 10 12:17:16 2026 GMT
+Ssl_server_not_after	Mar  8 15:41:08 2036 GMT
+Ssl_server_not_before	Mar 11 15:41:08 2026 GMT
 Ssl_session_cache_hits	0
 Ssl_session_cache_misses	3
 Ssl_session_cache_mode	SERVER
@@ -417,5 +417,5 @@ Threads_cached	0
 Threads_connected	1
 Threads_created	1
 Threads_running	1
-Uptime	3
-Uptime_since_flush_status	3
+Uptime	2
+Uptime_since_flush_status	2
