@@ -137,19 +137,48 @@
 
     <div class="card">
       <div id="chart"></div>
-      <div style="margin-top: 14px; font-family: monospace; font-size: 13px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 12px; padding: 16px 20px; line-height: 1.7; color: #333;">
-        <div style="font-weight: 700; margin-bottom: 4px; color: #555;">Percona pt-summary System Info
-          <a href="https://percona-lab-results.github.io/2026-interactive-metrics/benchmark_logs/pt-summary-full.txt" target="_blank" rel="noopener" style="margin-left: 12px; font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; Open full pt-summary</a>
+      <div style="margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div>
+          <div style="font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #333;">
+            Percona pt-summary System Info
+            <a href="https://percona-lab-results.github.io/2026-interactive-metrics/benchmark_logs/pt-summary-full.txt" target="_blank" rel="noopener" style="margin-left: 10px; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; Open full pt-summary</a>
+          </div>
+          <table style="border-collapse: collapse; width: 100%; font-family: monospace; font-size: 13px;">
+            <thead>
+              <tr style="background: #e8eaf0;">
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Property</th>
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Platform</td>     <td style="border: 1px solid #ccc; padding: 4px 12px;">Linux</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Release</td>      <td style="border: 1px solid #ccc; padding: 4px 12px;">Ubuntu 24.04 LTS (noble)</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Kernel</td>       <td style="border: 1px solid #ccc; padding: 4px 12px;">6.8.0-60-generic</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Architecture</td> <td style="border: 1px solid #ccc; padding: 4px 12px;">CPU = 64-bit, OS = 64-bit</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Processors</td>   <td style="border: 1px solid #ccc; padding: 4px 12px;">physical = 2, cores = 40, virtual = 80, hyperthreading = yes</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Models</td>       <td style="border: 1px solid #ccc; padding: 4px 12px;">80x Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Memory Total</td> <td style="border: 1px solid #ccc; padding: 4px 12px;">187.5G</td></tr>
+            </tbody>
+          </table>
         </div>
-        <table style="border-collapse: collapse;">
-          <tr><td style="color: #888; padding-right: 24px;">Platform</td>      <td>Linux</td></tr>
-          <tr><td style="color: #888; padding-right: 24px;">Release</td>       <td>Ubuntu 24.04 LTS (noble)</td></tr>
-          <tr><td style="color: #888; padding-right: 24px;">Kernel</td>        <td>6.8.0-60-generic</td></tr>
-          <tr><td style="color: #888; padding-right: 24px;">Architecture</td>  <td>CPU = 64-bit, OS = 64-bit</td></tr>
-          <tr><td style="color: #888; padding-right: 24px;">Processors</td>    <td>physical = 2, cores = 40, virtual = 80, hyperthreading = yes</td></tr>
-          <tr><td style="color: #888; padding-right: 24px;">Models</td>        <td>80x Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz</td></tr>
-          <tr><td style="color: #888; padding-right: 24px;">Memory Total</td>  <td>187.5G</td></tr>
-        </table>
+        <div>
+          <div style="font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #333;">Sysbench Run Configuration</div>
+          <table style="border-collapse: collapse; width: 100%; font-family: monospace; font-size: 13px;">
+            <thead>
+              <tr style="background: #e8eaf0;">
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Parameter</th>
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test Type</td>      <td style="border: 1px solid #ccc; padding: 4px 12px;">OLTP Read-Write</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Tables</td>         <td style="border: 1px solid #ccc; padding: 4px 12px;">20</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Rows per table</td> <td style="border: 1px solid #ccc; padding: 4px 12px;">5,000,000</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test duration</td>  <td style="border: 1px solid #ccc; padding: 4px 12px;">900s (15 min)</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Scripts and data files</td> <td style="border: 1px solid #ccc; padding: 4px 12px;"><a href="https://github.com/Percona-Lab-results/2026-interactive-metrics/tree/test-data" target="_blank" rel="noopener" style="font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; GitHub</a></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -251,8 +280,8 @@ function layoutForMode() {
   const yTitle = (metric === "tps") ? "Transactions per second (TPS)" : "Queries per second (QPS)";
   const xTitle = (xMode === "threads") ? "Threads" : "Memory (GB)";
   const title = (xMode === "threads")
-    ? `Sysbench: ${yTitle} vs Threads (anchor memory: ${el("memAnchor").value}G)`
-    : `Sysbench: ${yTitle} vs Memory (anchor threads: ${el("threadsAnchor").value})`;
+    ? `Sysbench: ${yTitle} vs Threads`
+    : `Sysbench: ${yTitle} vs Memory`;
 
   return {
     title: { text: title },
