@@ -4,7 +4,6 @@ sudo apt update
 sudo apt install docker.io sysstat sysbench mysql-client  -y
 
 ./run_pt_summary.sh
-exit 0
 
 VERSIONS=("5.7" "8.0" "8.4")
 

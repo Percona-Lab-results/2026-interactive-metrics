@@ -8,8 +8,14 @@ DB_DATABASE="sbtest"
 POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
 #POOL_SIZES=(32)
 
-THREADS=(1 4 16 32 64 128 256)
+#THREADS=(1 4 16 32 64 128 256 512)
+
+if [[ "$DBMS_NAME" == "mysql" ]]; then
+    THREADS=(256 512)
 #THREADS=(256)
+else
+    THREADS=(512)
+fi
 
 # --- DEBUG SETTINGS ---
 TABLE_ROWS=5000000
@@ -46,7 +52,7 @@ CONTAINER_NAME="dbms-benchmark-test"
 MYSQL_ROOT_PASSWORD="password"
 CONFIG_DIR="$HOME/configs"
 CONFIG_PATH="$CONFIG_DIR/config.cnf"
-    
+
 server_wait() {
   # Wait for MySQL to be ready
   echo "Waiting for DB Server to initialize..."
@@ -74,6 +80,11 @@ run_container() {
     -e MYSQL_DATABASE="sbtest" \
     -e MYSQL_ROOT_HOST='%' \
     -d ${IMAGE_NAME}
+}
+
+run_mysql_summary() {
+    echo ">>> Running pt-mysql-summary for ${DBMS_NAME}:${DBMS_VER}..."
+    ./pt-mysql-summary --host="$DB_HOST" --user="$DB_USER" --password="$DB_PASS" > "${LOG_DIR}/pt-mysql-summary.txt"
 }
 
 # Make sure no containers are running at this stage.
@@ -143,6 +154,16 @@ check_vars_status() {
     fi
 }
 
+run_mysql_summary() {
+    ./pt-mysql-summary --host="$DB_HOST" --user="$DB_USER" --password="$DB_PASS" > "${FILE_PREFIX}-pt-mysql-summary.txt"
+    if [ $? -eq 0 ]; then
+        echo "    Server summary saved to: ${FILE_PREFIX}-pt-mysql-summary.txt"
+    else
+        echo "    ERROR: Failed to server summary with pt-mysql-summary"
+    fi
+}
+
+
 # --- CONFIGURATION GENERATOR ---
 generate_config() {
     local SIZE=$1
@@ -162,6 +183,7 @@ generate_config() {
     echo "table_open_cache_instances = 64" >> "$CFG"
     echo "back_log = 3500" >> "$CFG"
     echo "connect_timeout = 60" >> "$CFG"
+    echo "character_set_server = utf8mb4" >> "$CFG"
 
     # 2. Instance Sizing
     if [ "$SIZE" -lt 8 ]; then
@@ -259,6 +281,9 @@ for SIZE in "${POOL_SIZES[@]}"; do
   check_innodb_buffer $SIZE
   check_vars_status "${LOG_DIR}/Tier${SIZE}G"
   init_data
+  run_mysql_summary "${LOG_DIR}/Tier${SIZE}G"
+
+  continue # SKIP BENCHMARKS FOR NOW, REMOVE ME WHEN READY
   
   # 2. WARMUP (Reads then Writes)
   echo ">>> Warmup A: Read-Only (${WARMUP_RO_TIME}s)..."
@@ -285,7 +310,7 @@ for SIZE in "${POOL_SIZES[@]}"; do
         --threads=$THREAD \
         --time=$DURATION \
         --report-interval=1 \
-        run > "${FILE_PREFIX}.sysbench"
+        run > "${FILE_PREFIX}.sysbench.txt"
 
     stop_metrics
     sleep 15
