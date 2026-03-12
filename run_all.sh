@@ -1,12 +1,13 @@
 #!/bin/bash
 
 sudo apt update
-sudo apt install docker.io sysstat sysbench mysql-client  -y
+sudo apt install docker.io sysstat sysbench mysql-client dstat -y
 
 ./run_pt_summary.sh
 ./run_pt_mysql_summary.sh
 
-VERSIONS=("5.7" "8.0" "8.4")
+#VERSIONS=("5.7" "8.0" "8.4")
+VERSIONS=("8.4")
 
 for VERSION in "${VERSIONS[@]}"; do
   ./run_metrics.sh "percona-server" "$VERSION"

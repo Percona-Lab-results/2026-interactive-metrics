@@ -253,14 +253,16 @@ start_metrics() {
     echo "iostat -dxm 1 > ${PREFIX}.iostat.txt & echo \$! > /tmp/iostat.pid"
     echo "vmstat 1 > ${PREFIX}.vmstat.txt & echo \$! > /tmp/vmstat.pid"
     echo "mpstat -P ALL 1 > ${PREFIX}.mpstat.txt & echo \$! > /tmp/mpstat.pid"
+    echo "dstat -t 1 > ${PREFIX}.dstat.txt & echo \$! > /tmp/dstat.pid"
 
     iostat -dxm 1 > ${PREFIX}.iostat.txt & echo $! > /tmp/iostat.pid
     vmstat 1 > ${PREFIX}.vmstat.txt & echo $! > /tmp/vmstat.pid
     mpstat -P ALL 1 > ${PREFIX}.mpstat.txt & echo $! > /tmp/mpstat.pid
+    dstat -t 1 > ${PREFIX}.dstat.txt & echo $! > /tmp/dstat.pid
 }
 
 stop_metrics() {
-    kill $(cat /tmp/iostat.pid) $(cat /tmp/vmstat.pid) $(cat /tmp/mpstat.pid) 2>/dev/null
+    kill $(cat /tmp/iostat.pid) $(cat /tmp/vmstat.pid) $(cat /tmp/mpstat.pid) $(cat /tmp/dstat.pid) 2>/dev/null
 }
 
 init_data() {
