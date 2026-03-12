@@ -587,7 +587,7 @@ select_into_disk_sync	OFF
 select_into_disk_sync_delay	0
 server_id	1
 server_id_bits	32
-server_uuid	47e8aed7-1db0-11f1-92ac-ac1f6bc8457b
+server_uuid	62ba038c-1e06-11f1-8fbe-ac1f6bc8457b
 session_track_gtids	OFF
 session_track_schema	ON
 session_track_state_change	OFF
@@ -690,7 +690,7 @@ thread_pool_stall_limit	500
 thread_stack	1048576
 thread_statistics	OFF
 time_zone	SYSTEM
-timestamp	1773277847.563889
+timestamp	1773314829.277856
 tls_ciphersuites	
 tls_version	TLSv1.2,TLSv1.3
 tmp_table_size	16777216
