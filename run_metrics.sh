@@ -6,9 +6,10 @@ DB_USER="root"
 DB_PASS="password"
 DB_DATABASE="sbtest"
 POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
-#POOL_SIZES=(32)
+#POOL_SIZES=(2)
 
 THREADS=(1 4 16 32 64 128 256 512)
+#THREADS=(512)
 
 # --- DEBUG SETTINGS ---
 TABLE_ROWS=5000000
@@ -23,6 +24,8 @@ DURATION=900
 
 DBMS_NAME="$1"
 DBMS_VER="$2"
+IS_READ_ONLY="$3"
+
 CONF_D_DIR="mysql/conf.d"
 
 echo "============= Running benchmarks for ${DBMS_NAME}:${DBMS_VER} ============="
@@ -302,9 +305,15 @@ for SIZE in "${POOL_SIZES[@]}"; do
   sysbench oltp_read_only --mysql-host=$DB_HOST --mysql-user=$DB_USER --mysql-password=$DB_PASS \
     --mysql-db=$DB_DATABASE --tables=20 --table-size=$TABLE_ROWS --threads=16 --time=$WARMUP_RO_TIME run
 
-  echo ">>> Warmup B: Dirty Writes (${WARMUP_RW_TIME}s)..."
-  sysbench oltp_read_write --mysql-host=$DB_HOST --mysql-user=$DB_USER --mysql-password=$DB_PASS \
-    --mysql-db=$DB_DATABASE --tables=20 --table-size=$TABLE_ROWS --threads=64 --time=$WARMUP_RW_TIME run
+  if [ "$IS_READ_ONLY" == "1" ]; then
+    echo "Read-only mode enabled, skipping read-write warmup and benchmarks."
+    TEST_TYPE="oltp_read_only"
+  else
+    echo ">>> Warmup B: Dirty Writes (${WARMUP_RW_TIME}s)..."
+    sysbench oltp_read_write --mysql-host=$DB_HOST --mysql-user=$DB_USER --mysql-password=$DB_PASS \
+        --mysql-db=$DB_DATABASE --tables=20 --table-size=$TABLE_ROWS --threads=64 --time=$WARMUP_RW_TIME run
+    TEST_TYPE="oltp_read_write"
+  fi
 
   # 3. MEASUREMENT
   for THREAD in "${THREADS[@]}"; do
@@ -313,7 +322,7 @@ for SIZE in "${POOL_SIZES[@]}"; do
 
       start_metrics "$FILE_PREFIX"
 
-      sysbench oltp_read_write \
+      sysbench $TEST_TYPE \
         --mysql-host=$DB_HOST \
         --mysql-user=$DB_USER \
         --mysql-password=$DB_PASS \
