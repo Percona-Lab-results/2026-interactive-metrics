@@ -18,25 +18,25 @@ binlog_group_commit_sync_no_delay_count	0
 binlog_gtid_simple_recovery	ON
 binlog_max_flush_queue_time	0
 binlog_order_commits	ON
-binlog_row_image	FULL
+binlog_row_image	MINIMAL
 binlog_rows_query_log_events	OFF
 binlog_stmt_cache_size	32768
 binlog_transaction_dependency_history_size	25000
 binlog_transaction_dependency_tracking	COMMIT_ORDER
 block_encryption_mode	aes-128-ecb
 bulk_insert_buffer_size	8388608
-character_set_client	latin1
-character_set_connection	latin1
-character_set_database	latin1
+character_set_client	utf8mb4
+character_set_connection	utf8mb4
+character_set_database	utf8mb4
 character_set_filesystem	binary
-character_set_results	latin1
-character_set_server	latin1
+character_set_results	utf8mb4
+character_set_server	utf8mb4
 character_set_system	utf8
 character_sets_dir	/usr/share/mysql/charsets/
 check_proxy_users	OFF
-collation_connection	latin1_swedish_ci
-collation_database	latin1_swedish_ci
-collation_server	latin1_swedish_ci
+collation_connection	utf8mb4_general_ci
+collation_database	utf8mb4_general_ci
+collation_server	utf8mb4_general_ci
 completion_type	NO_CHAIN
 concurrent_insert	AUTO
 connect_timeout	60
@@ -145,7 +145,7 @@ innodb_file_per_table	ON
 innodb_fill_factor	100
 innodb_flush_log_at_timeout	1
 innodb_flush_log_at_trx_commit	1
-innodb_flush_method	
+innodb_flush_method	O_DIRECT
 innodb_flush_neighbors	1
 innodb_flush_sync	ON
 innodb_flushing_avg_loops	30
@@ -168,7 +168,7 @@ innodb_io_capacity_max	5000
 innodb_large_prefix	ON
 innodb_lock_wait_timeout	50
 innodb_locks_unsafe_for_binlog	OFF
-innodb_log_buffer_size	16777216
+innodb_log_buffer_size	67108864
 innodb_log_checksums	ON
 innodb_log_compressed_pages	ON
 innodb_log_file_size	2147483648
@@ -253,9 +253,9 @@ license	GPL
 local_infile	ON
 lock_wait_timeout	31536000
 locked_in_memory	OFF
-log_bin	OFF
-log_bin_basename	
-log_bin_index	
+log_bin	ON
+log_bin_basename	/var/lib/mysql/binlog
+log_bin_index	/var/lib/mysql/binlog.index
 log_bin_trust_function_creators	OFF
 log_bin_use_v1_row_events	OFF
 log_builtin_as_identified_by_password	OFF
@@ -421,9 +421,9 @@ require_secure_transport	OFF
 rpl_stop_slave_timeout	31536000
 secure_auth	ON
 secure_file_priv	/var/lib/mysql-files/
-server_id	0
+server_id	1
 server_id_bits	32
-server_uuid	ef710f62-1c7b-11f1-bc53-ac1f6bc8457b
+server_uuid	ade05979-1e1f-11f1-8c01-ac1f6bc8457b
 session_track_gtids	OFF
 session_track_schema	ON
 session_track_state_change	OFF
@@ -497,7 +497,7 @@ thread_handling	one-thread-per-connection
 thread_stack	262144
 time_format	%H:%i:%s
 time_zone	SYSTEM
-timestamp	1773145416.293123
+timestamp	1773325693.726536
 tls_version	TLSv1,TLSv1.1,TLSv1.2
 tmp_table_size	16777216
 tmpdir	/tmp
@@ -511,7 +511,7 @@ tx_isolation	REPEATABLE-READ
 tx_read_only	OFF
 unique_checks	ON
 updatable_views_with_limit	YES
-version	5.7.44
+version	5.7.44-log
 version_comment	MySQL Community Server (GPL)
 version_compile_machine	x86_64
 version_compile_os	Linux

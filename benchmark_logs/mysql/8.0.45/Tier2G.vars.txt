@@ -36,7 +36,7 @@ binlog_max_flush_queue_time	0
 binlog_order_commits	ON
 binlog_rotate_encryption_master_key_at_startup	OFF
 binlog_row_event_max_size	8192
-binlog_row_image	FULL
+binlog_row_image	MINIMAL
 binlog_row_metadata	MINIMAL
 binlog_row_value_options	
 binlog_rows_query_log_events	OFF
@@ -189,7 +189,7 @@ innodb_file_per_table	ON
 innodb_fill_factor	100
 innodb_flush_log_at_timeout	1
 innodb_flush_log_at_trx_commit	1
-innodb_flush_method	fsync
+innodb_flush_method	O_DIRECT
 innodb_flush_neighbors	0
 innodb_flush_sync	ON
 innodb_flushing_avg_loops	30
@@ -212,7 +212,7 @@ innodb_idle_flush_pct	100
 innodb_io_capacity	2500
 innodb_io_capacity_max	5000
 innodb_lock_wait_timeout	50
-innodb_log_buffer_size	16777216
+innodb_log_buffer_size	67108864
 innodb_log_checksums	ON
 innodb_log_compressed_pages	ON
 innodb_log_file_size	2147483648
@@ -539,7 +539,7 @@ select_into_disk_sync	OFF
 select_into_disk_sync_delay	0
 server_id	1
 server_id_bits	32
-server_uuid	2237c25c-1c7c-11f1-9e0d-ac1f6bc8457b
+server_uuid	62369cf1-1e6f-11f1-bef5-ac1f6bc8457b
 session_track_gtids	OFF
 session_track_schema	ON
 session_track_state_change	OFF
@@ -630,7 +630,7 @@ thread_cache_size	48
 thread_handling	one-thread-per-connection
 thread_stack	1048576
 time_zone	SYSTEM
-timestamp	1773145498.345254
+timestamp	1773359925.485894
 tls_ciphersuites	
 tls_version	TLSv1.2,TLSv1.3
 tmp_table_size	16777216
