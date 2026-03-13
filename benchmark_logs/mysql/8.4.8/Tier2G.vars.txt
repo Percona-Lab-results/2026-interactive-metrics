@@ -35,7 +35,7 @@ binlog_max_flush_queue_time	0
 binlog_order_commits	ON
 binlog_rotate_encryption_master_key_at_startup	OFF
 binlog_row_event_max_size	8192
-binlog_row_image	FULL
+binlog_row_image	MINIMAL
 binlog_row_metadata	MINIMAL
 binlog_row_value_options	
 binlog_rows_query_log_events	OFF
@@ -531,7 +531,7 @@ select_into_disk_sync	OFF
 select_into_disk_sync_delay	0
 server_id	1
 server_id_bits	32
-server_uuid	4734dd61-1c7c-11f1-9710-ac1f6bc8457b
+server_uuid	116f4eaa-1eab-11f1-ab84-ac1f6bc8457b
 session_track_gtids	OFF
 session_track_schema	ON
 session_track_state_change	OFF
@@ -621,7 +621,7 @@ thread_cache_size	48
 thread_handling	one-thread-per-connection
 thread_stack	1048576
 time_zone	SYSTEM
-timestamp	1773145562.406600
+timestamp	1773385559.697705
 tls_certificates_enforced_validation	OFF
 tls_ciphersuites	
 tls_version	TLSv1.2,TLSv1.3
