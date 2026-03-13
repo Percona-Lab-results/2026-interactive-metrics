@@ -15,7 +15,11 @@
 
 args        <- commandArgs(trailingOnly = TRUE)
 base_dir    <- if (length(args) >= 1) args[1] else "benchmark_logs"
-output_file <- if (length(args) >= 2) args[2] else "sysbench_interactive_comparison.html"
+
+default_input  <- file.path("visuals", "visual_template.html")
+default_output <- file.path(base_dir, "sysbench_interactive_comparison.html")
+
+output_file <- if (length(args) >= 2) args[2] else default_output
 
 cat(sprintf("Scanning: %s\n", base_dir))
 
@@ -134,56 +138,18 @@ data_block <- paste0(
 threads_js_vals <- paste0("[", paste(threads_sorted, collapse = ","), "]")
 threads_js_text <- paste0('["', paste(threads_sorted, collapse = '","'), '"]')
 
-# ── 5. HTML template (split at the data block injection point) ────────────────
-# The template is the full interactive HTML with {{DATA_BLOCK}} as placeholder,
-# and {{TICK_VALS}} / {{TICK_TEXT}} for the x-axis tick configuration.
-#
-# Rather than embedding the full template as a string literal (fragile),
-# we construct it from two parts read from the current HTML if it exists
-# alongside this script, OR fall back to the built-in template string below.
-
-template_file <- file.path(dirname(normalizePath(output_file, mustWork = FALSE)),
-                            "visual_template.html")
-use_inline_template <- TRUE
-
-if (file.exists(template_file)) {
-  tmpl <- readLines(template_file, warn = FALSE)
-  tmpl <- paste(tmpl, collapse = "\n")
-  if (grepl("{{DATA_BLOCK}}", tmpl, fixed = TRUE)) {
-    use_inline_template <- FALSE
-    cat(sprintf("Using template file: %s\n", template_file))
-  }
+# ── 5. Load HTML template ─────────────────────────────────────────────────────
+if (!file.exists(default_input)) {
+  stop(sprintf("Template not found: %s", default_input))
 }
 
-if (use_inline_template) {
-  # ── Inline template ──────────────────────────────────────────────────────────
-  # Split into BEFORE and AFTER the data block.
-  # The marker line in the HTML is:  <script>\n  <<< data block >>> \n\nfunction el...
-  # We hardcode the two halves here so the script is fully self-contained.
-  cat("Using inline template\n")
-  source_html <- if (file.exists("sysbench_interactive_comparison.html")) {
-    readLines("sysbench_interactive_comparison.html", warn = FALSE)
-  } else {
-    NULL
-  }
+tmpl <- paste(readLines(default_input, warn = FALSE), collapse = "\n")
 
-  if (!is.null(source_html)) {
-    full_html  <- paste(source_html, collapse = "\n")
-    # Replace existing data block with placeholder
-    tmpl <- gsub(
-      "const DATA = \\[.*?\\];\\nconst SERVERS = \\[.*?\\];\\nconst MEMS = \\[.*?\\];\\nconst THREADS = \\[.*?\\];",
-      "{{DATA_BLOCK}}",
-      full_html,
-      perl = TRUE
-    )
-    cat("Template extracted from existing HTML file.\n")
-  } else {
-    stop(paste(
-      "No template source found. Either place sysbench_template.html or",
-      "sysbench_interactive_comparison.html alongside this script."
-    ))
-  }
+if (!grepl("{{DATA_BLOCK}}", tmpl, fixed = TRUE)) {
+  stop(sprintf("Template file '%s' is missing the {{DATA_BLOCK}} placeholder.", default_input))
 }
+
+cat(sprintf("Using template: %s\n", default_input))
 
 # ── 6. Inject data and write output ───────────────────────────────────────────
 # Replace data block
