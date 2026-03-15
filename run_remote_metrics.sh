@@ -9,6 +9,9 @@ DB_DATABASE="sbtest"
 POOL_SIZES=(32 12 2)
 THREADS=(1 4 16 32 64 128 256 512)
 
+# POOL_SIZES=(2)
+# THREADS=(1)
+
 DBMS_NAME="$1"
 DBMS_VER="$2"
 CONF_DIR="mysql/conf.d"
@@ -24,21 +27,28 @@ if [[ "$DBMS_NAME" == "percona-server" ]]; then
     CONF_DIR="my.cnf.d"
 fi
 
-ADMIN_TOOL=$([[ "$DBMS_NAME" == "mariadb" ]] && echo "mariadb-admin" || echo "mysqladmin")
+if [[ "$DBMS_NAME" == "mariadb" ]]; then
+    ADMIN_TOOL="mariadb-admin"
+    CMD_TOOL="mariadb"
+else
+    ADMIN_TOOL="mysqladmin"
+    CMD_TOOL="mysql"
+fi  
+
 IMAGE_NAME="${IMAGE_PREFIX}${DBMS_NAME}:${DBMS_VER}"
 CONTAINER_NAME="dbms-benchmark-test"
 
 # --- DEBUG SETTINGS ---
-# TABLE_ROWS=5000000
-# WARMUP_RO_TIME=180
-# WARMUP_RW_TIME=600
-# DURATION=900
+TABLE_ROWS=5000000
+WARMUP_RO_TIME=180
+WARMUP_RW_TIME=600
+DURATION=900
 
 # --- DEBUG SETTINGS ---
-TABLE_ROWS=50000
-WARMUP_RO_TIME=10
-WARMUP_RW_TIME=10
-DURATION=30
+# TABLE_ROWS=50000
+# WARMUP_RO_TIME=10
+# WARMUP_RW_TIME=10
+# DURATION=30
 
 # Helper function to run commands on remote host
 remote_exec() {
@@ -50,10 +60,10 @@ server_wait() {
   sleep 5
 
   # Check that the container exists and is running
-  if [[ "$(remote_exec "docker inspect -f '{{.State.Running}}' '$CONTAINER_NAME' 2>/dev/null")" != "true" ]]; then
-    echo "Fatal error: container '$CONTAINER_NAME' is not running or does not exist. Terminating script."
-    exit 1
-  fi
+  # if [[ "$(remote_exec "docker inspect -f '{{.State.Running}}' '$CONTAINER_NAME' 2>/dev/null")" != "true" ]]; then
+  #   echo "Fatal error: container '$CONTAINER_NAME' is not running or does not exist. Terminating script."
+  #   exit 1
+  # fi
 
   until remote_exec "docker exec $CONTAINER_NAME $ADMIN_TOOL ping --host=127.0.0.1 -u\"root\" -p\"$DB_PASS\"" >/dev/null 2>&1; do
     echo "   ... still waiting for DB to be responsive ..."
@@ -85,7 +95,7 @@ check_innodb_buffer() {
   echo ">>> Verifying InnoDB Buffer Pool: ${EXPECTED_GB}GB..."
 
   local ACTUAL_BYTES
-  ACTUAL_BYTES=$(remote_exec "docker exec $CONTAINER_NAME mysql -u $DB_USER -p$DB_PASS -N -s -e \"SELECT @@innodb_buffer_pool_size;\" 2>/dev/null")
+  ACTUAL_BYTES=$(remote_exec "docker exec $CONTAINER_NAME $CMD_TOOL -u $DB_USER -p$DB_PASS -N -s -e \"SELECT @@innodb_buffer_pool_size;\" 2>/dev/null")
 
   if [[ -z "$ACTUAL_BYTES" ]]; then
     echo "Error: Could not retrieve buffer pool size"
@@ -109,14 +119,14 @@ check_vars_status() {
   local FILE_PREFIX=$1
   echo ">>> Capturing server variables and status..."
 
-  remote_exec "docker exec $CONTAINER_NAME mysql -u $DB_USER -p$DB_PASS -N -e \"SHOW VARIABLES;\" 2>/dev/null" > "${FILE_PREFIX}.vars.txt"
+  remote_exec "docker exec $CONTAINER_NAME $CMD_TOOL -u $DB_USER -p$DB_PASS -N -e \"SHOW VARIABLES;\" 2>/dev/null" > "${FILE_PREFIX}.vars.txt"
   if [ $? -eq 0 ]; then
     echo "    Variables saved to: ${FILE_PREFIX}.vars.txt"
   else
     echo "    ERROR: Failed to capture variables"
   fi
 
-  remote_exec "docker exec $CONTAINER_NAME mysql -u $DB_USER -p$DB_PASS -N -e \"SHOW STATUS;\" 2>/dev/null" > "${FILE_PREFIX}.status.txt"
+  remote_exec "docker exec $CONTAINER_NAME $CMD_TOOL -u $DB_USER -p$DB_PASS -N -e \"SHOW STATUS;\" 2>/dev/null" > "${FILE_PREFIX}.status.txt"
   if [ $? -eq 0 ]; then
     echo "    Status saved to: ${FILE_PREFIX}.status.txt"
   else
@@ -219,10 +229,11 @@ start_metrics() {
   remote_exec "iostat -dxm 1 > \"${REMOTE_PREFIX}.iostat.txt\" 2>/dev/null & echo \$! > /tmp/iostat.pid"
   remote_exec "vmstat 1 > \"${REMOTE_PREFIX}.vmstat.txt\" 2>/dev/null & echo \$! > /tmp/vmstat.pid"
   remote_exec "mpstat -P ALL 1 > \"${REMOTE_PREFIX}.mpstat.txt\" 2>/dev/null & echo \$! > /tmp/mpstat.pid"
+  remote_exec "dstat -v > \"${REMOTE_PREFIX}.dstat.txt\" 2>/dev/null & echo \$! > /tmp/dstat.pid"
 }
 
 stop_metrics() {
-  remote_exec "kill \$(cat /tmp/iostat.pid /tmp/vmstat.pid /tmp/mpstat.pid) 2>/dev/null"
+  remote_exec "kill \$(cat /tmp/iostat.pid /tmp/vmstat.pid /tmp/mpstat.pid /tmp/dstat.pid) 2>/dev/null"
 }
 
 init_data() {
@@ -243,7 +254,7 @@ run_container
 server_wait
 
 # Detect version inside container
-RAW_VERSION=$(remote_exec "docker exec $CONTAINER_NAME mysql -u $DB_USER -p$DB_PASS -N -s -e \"SELECT VERSION();\"")
+RAW_VERSION=$(remote_exec "docker exec $CONTAINER_NAME $CMD_TOOL -u $DB_USER -p$DB_PASS -N -s -e \"SELECT VERSION();\"")
 MAJOR_VER=$(echo "$RAW_VERSION" | cut -d'.' -f1,2)
 IS_MARIA=$(echo "$RAW_VERSION" | grep -iq "Maria" && echo 1 || echo 0)
 
