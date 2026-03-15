@@ -15,8 +15,16 @@
 
 args        <- commandArgs(trailingOnly = TRUE)
 base_dir    <- if (length(args) >= 1) args[1] else "benchmark_logs"
+test_type   <- if (length(args) >= 3) args[3] else "OLTP Read-Write"
 
-default_input  <- file.path("visuals", "visual_template.html")
+# Resolve paths relative to this script's location so it works regardless
+# of the working directory (e.g. GitHub Actions sets CWD to repo root)
+script_dir <- tryCatch(
+  dirname(normalizePath(sys.frame(0)$ofile, mustWork = FALSE)),
+  error = function(e) "."
+)
+
+default_input  <- file.path(script_dir, "visual_template.html")
 default_output <- file.path(base_dir, "sysbench_interactive_comparison.html")
 
 output_file <- if (length(args) >= 2) args[2] else default_output
@@ -154,6 +162,9 @@ cat(sprintf("Using template: %s\n", default_input))
 # ── 6. Inject data and write output ───────────────────────────────────────────
 # Replace data block
 output_html <- sub("{{DATA_BLOCK}}", data_block, tmpl, fixed = TRUE)
+
+# Replace test type
+output_html <- sub("{{TEST_TYPE}}", test_type, output_html, fixed = TRUE)
 
 # Replace tick arrays (keep them in sync with whatever threads were found)
 output_html <- gsub(
