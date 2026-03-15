@@ -26,8 +26,8 @@ Binlog_group_commits	0
 Binlog_group_commit_trigger_count	0
 Binlog_group_commit_trigger_lock_wait	0
 Binlog_group_commit_trigger_timeout	0
-Binlog_snapshot_file	
-Binlog_snapshot_position	0
+Binlog_snapshot_file	binlog.000002
+Binlog_snapshot_position	339
 Binlog_bytes_written	0
 Binlog_cache_disk_use	0
 Binlog_cache_use	0
@@ -35,7 +35,7 @@ Binlog_stmt_cache_disk_use	0
 Binlog_stmt_cache_use	0
 Busy_time	0.000000
 Bytes_received	268
-Bytes_sent	208
+Bytes_sent	212
 Column_compressions	0
 Column_decompressions	0
 Com_admin_commands	0
@@ -213,7 +213,7 @@ Connection_errors_max_connections	0
 Connection_errors_peer_address	0
 Connection_errors_select	0
 Connection_errors_tcpwrap	0
-Connections	6
+Connections	7
 Cpu_time	0.000000
 Created_tmp_disk_tables	0
 Created_tmp_files	4
@@ -271,17 +271,17 @@ Handler_update	0
 Handler_write	0
 Innodb_adaptive_hash_hash_searches	0
 Innodb_adaptive_hash_non_hash_searches	0
-Innodb_background_log_sync	1
+Innodb_background_log_sync	2
 Innodb_buffer_pool_dump_status	
-Innodb_buffer_pool_load_status	Buffer pool(s) load completed at 260310 12:20:59
+Innodb_buffer_pool_load_status	Buffer pool(s) load completed at 260313 21:26:17
 Innodb_buffer_pool_resize_status	
 Innodb_buffer_pool_load_incomplete	OFF
-Innodb_buffer_pool_pages_data	280
-Innodb_buffer_pool_bytes_data	4587520
+Innodb_buffer_pool_pages_data	279
+Innodb_buffer_pool_bytes_data	4571136
 Innodb_buffer_pool_pages_dirty	0
 Innodb_buffer_pool_bytes_dirty	0
 Innodb_buffer_pool_pages_flushed	0
-Innodb_buffer_pool_pages_free	2076392
+Innodb_buffer_pool_pages_free	2076393
 Innodb_buffer_pool_pages_made_not_young	0
 Innodb_buffer_pool_pages_made_young	0
 Innodb_buffer_pool_pages_misc	0
@@ -293,8 +293,8 @@ Innodb_buffer_pool_pages_split	0
 Innodb_buffer_pool_read_ahead_rnd	0
 Innodb_buffer_pool_read_ahead	0
 Innodb_buffer_pool_read_ahead_evicted	0
-Innodb_buffer_pool_read_requests	914
-Innodb_buffer_pool_reads	149
+Innodb_buffer_pool_read_requests	913
+Innodb_buffer_pool_reads	148
 Innodb_buffer_pool_wait_free	0
 Innodb_buffer_pool_write_requests	0
 Innodb_checkpoint_age	16
@@ -303,8 +303,8 @@ Innodb_data_fsyncs	1
 Innodb_data_pending_fsyncs	0
 Innodb_data_pending_reads	0
 Innodb_data_pending_writes	0
-Innodb_data_read	2441216
-Innodb_data_reads	157
+Innodb_data_read	2424832
+Innodb_data_reads	156
 Innodb_data_writes	0
 Innodb_data_written	0
 Innodb_dblwr_pages_written	0
@@ -328,14 +328,14 @@ Innodb_lsn_current	44824
 Innodb_lsn_flushed	44824
 Innodb_lsn_last_checkpoint	44808
 Innodb_master_thread_active_loops	0
-Innodb_master_thread_idle_loops	1
-Innodb_max_trx_id	16
+Innodb_master_thread_idle_loops	2
+Innodb_max_trx_id	17
 Innodb_mem_adaptive_hash	0
 Innodb_mem_dictionary	212434168
 Innodb_os_log_written	0
 Innodb_page_size	16384
 Innodb_pages_created	131
-Innodb_pages_read	149
+Innodb_pages_read	148
 Innodb_pages_written	0
 Innodb_row_lock_current_waits	0
 Innodb_row_lock_time	0
@@ -395,13 +395,13 @@ Max_memory_used	86376
 Max_statement_time_exceeded	0
 Max_used_connections	1
 Memory_used	86376
-Memory_used_initial	34684642768
+Memory_used_initial	34785391224
 Not_flushed_delayed_rows	0
-Open_files	23
+Open_files	25
 Open_streams	4
 Open_table_definitions	17
 Open_tables	10
-Opened_files	74
+Opened_files	81
 Opened_plugin_libraries	0
 Opened_table_definitions	0
 Opened_tables	0
@@ -447,7 +447,7 @@ Qcache_not_cached	0
 Qcache_queries_in_cache	0
 Qcache_total_blocks	0
 Queries	9
-Query_time	0.000040
+Query_time	0.000035
 Questions	2
 Resultset_metadata_skipped	0
 Rows_read	0
@@ -522,7 +522,7 @@ Ssl_version
 Stack_usage	19760
 Subquery_cache_hit	0
 Subquery_cache_miss	0
-Syncs	16
+Syncs	21
 Table_locks_immediate	17
 Table_locks_waited	0
 Table_open_cache_active_instances	1

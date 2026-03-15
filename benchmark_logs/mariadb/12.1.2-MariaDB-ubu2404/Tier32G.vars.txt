@@ -42,7 +42,7 @@ binlog_direct_non_transactional_updates	OFF
 binlog_do_db	
 binlog_expire_logs_seconds	864000
 binlog_file_cache_size	16384
-binlog_format	MIXED
+binlog_format	ROW
 binlog_gtid_index	ON
 binlog_gtid_index_page_size	4096
 binlog_gtid_index_span_min	65536
@@ -51,7 +51,7 @@ binlog_large_commit_threshold	134217728
 binlog_legacy_event_pos	OFF
 binlog_optimize_thread_scheduling	ON
 binlog_row_event_max_size	8192
-binlog_row_image	FULL
+binlog_row_image	MINIMAL
 binlog_row_metadata	NO_LOG
 binlog_space_limit	0
 binlog_stmt_cache_size	32768
@@ -120,10 +120,10 @@ ft_stopword_file	(built-in)
 general_log	OFF
 general_log_file	beast-node1.log
 group_concat_max_len	1048576
-gtid_binlog_pos	
-gtid_binlog_state	
+gtid_binlog_pos	0-1-1
+gtid_binlog_state	0-1-1
 gtid_cleanup_batch_size	64
-gtid_current_pos	
+gtid_current_pos	0-1-1
 gtid_domain_id	0
 gtid_ignore_duplicates	OFF
 gtid_pos_auto_engines	
@@ -149,7 +149,7 @@ idle_readonly_transaction_timeout	0
 idle_transaction_timeout	0
 idle_write_transaction_timeout	0
 ignore_builtin_innodb	OFF
-ignore_db_dirs	
+ignore_db_dirs	#binlog_cache_files
 in_predicate_conversion_threshold	1000
 in_transaction	0
 init_connect	
@@ -228,7 +228,7 @@ innodb_io_capacity	2500
 innodb_io_capacity_max	5000
 innodb_linux_aio	auto
 innodb_lock_wait_timeout	50
-innodb_log_buffer_size	16777216
+innodb_log_buffer_size	67108864
 innodb_log_checkpoint_now	OFF
 innodb_log_file_buffering	OFF
 innodb_log_file_mmap	OFF
@@ -315,11 +315,11 @@ license	GPL
 local_infile	ON
 lock_wait_timeout	86400
 locked_in_memory	OFF
-log_bin	OFF
-log_bin_basename	
+log_bin	ON
+log_bin_basename	/var/lib/mysql/binlog
 log_bin_compress	OFF
 log_bin_compress_min_len	256
-log_bin_index	
+log_bin_index	/var/lib/mysql/binlog.index
 log_bin_trust_function_creators	OFF
 log_disabled_statements	sp
 log_error	
@@ -485,7 +485,7 @@ protocol_version	10
 proxy_protocol_networks	
 proxy_user	
 pseudo_slave_mode	OFF
-pseudo_thread_id	5
+pseudo_thread_id	6
 query_alloc_block_size	32768
 query_cache_limit	1048576
 query_cache_min_res_unit	4096
@@ -494,8 +494,8 @@ query_cache_strip_comments	OFF
 query_cache_type	OFF
 query_cache_wlock_invalidate	OFF
 query_prealloc_size	32768
-rand_seed1	796016533
-rand_seed2	953660708
+rand_seed1	727393160
+rand_seed2	330544033
 range_alloc_block_size	4096
 read_binlog_speed_limit	0
 read_buffer_size	131072
@@ -601,7 +601,7 @@ ssl_passphrase
 standard_compliant_cte	ON
 stored_program_cache	256
 strict_password_validation	ON
-sync_binlog	0
+sync_binlog	1
 sync_frm	ON
 sync_master_info	10000
 sync_relay_log	10000
@@ -630,7 +630,7 @@ thread_pool_size	80
 thread_pool_stall_limit	500
 thread_stack	299008
 time_zone	SYSTEM
-timestamp	1773145329.559133
+timestamp	1773488288.185872
 tls_version	TLSv1.2,TLSv1.3
 tmp_disk_table_size	18446744073709551615
 tmp_memory_table_size	16777216
@@ -646,7 +646,7 @@ unique_checks	ON
 updatable_views_with_limit	YES
 use_stat_tables	PREFERABLY_FOR_QUERIES
 userstat	OFF
-version	12.1.2-MariaDB-ubu2404
+version	12.1.2-MariaDB-ubu2404-log
 version_comment	mariadb.org binary distribution
 version_compile_machine	x86_64
 version_compile_os	debian-linux-gnu
