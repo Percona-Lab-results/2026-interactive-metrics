@@ -156,6 +156,9 @@ cat(sprintf("Using template: %s\n", default_input))
 # Replace data block
 output_html <- sub("{{DATA_BLOCK}}", data_block, tmpl, fixed = TRUE)
 
+# Replace base URL (used in download links)
+output_html <- gsub("{{BASE_URL}}", base_dir, output_html, fixed = TRUE)
+
 # Replace test type
 output_html <- sub("{{TEST_TYPE}}", test_type, output_html, fixed = TRUE)
 

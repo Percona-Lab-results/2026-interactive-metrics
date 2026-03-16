@@ -141,7 +141,7 @@
         <div>
           <div style="font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #333;">
             Percona pt-summary System Info
-            <a href="https://percona-lab-results.github.io/2026-interactive-metrics/benchmark_logs/pt-summary-full.txt" target="_blank" rel="noopener" style="margin-left: 10px; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; Open full pt-summary</a>
+            <a href="{{BASE_URL}}/pt-summary-full.txt" target="_blank" rel="noopener" style="margin-left: 10px; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; Open full pt-summary</a>
           </div>
           <table style="border-collapse: collapse; width: 100%; font-family: monospace; font-size: 13px;">
             <thead>
@@ -294,7 +294,7 @@ function layoutForMode() {
   };
 }
 
-const BASE_URL = "https://percona-lab-results.github.io/2026-interactive-metrics/benchmark_logs";
+const BASE_URL = "{{BASE_URL}}";
 const LOG_EXTS = ["iostat.txt", "mpstat.txt", "vmstat.txt"];
 
 function serverToPath(server) {
