@@ -17,7 +17,7 @@ args        <- commandArgs(trailingOnly = TRUE)
 base_dir    <- if (length(args) >= 1) args[1] else "benchmark_logs"
 test_type   <- if (length(args) >= 3) args[3] else "OLTP Read-Write"
 
-default_input  <- file.path("visuals", "visual_template.html")
+default_input  <- file.path("visuals", "visual_template.html.in")
 default_output <- file.path(base_dir, "sysbench_interactive_comparison.html")
 
 output_file <- if (length(args) >= 2) args[2] else default_output
