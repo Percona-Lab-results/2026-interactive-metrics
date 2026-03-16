@@ -92,7 +92,12 @@ stop_container "$CONTAINER_NAME"
 # --- DETECT VERSION & VENDOR ---
 echo "Run container to detect the version of the server"
 
-BENCH_DIR="./benchmark_logs"
+if [[ "$IS_READ_ONLY" == "1" ]]; then
+    BENCH_DIR="./benchmark_logs_read_only"
+else
+    BENCH_DIR="./benchmark_logs"
+fi  
+
 echo "Removing old config if exists: $CONFIG_PATH"
 sudo rm -rf "$CONFIG_PATH"
 
