@@ -49,6 +49,9 @@ jobs:
       - name: Generate Throughput Report for Remote OLTP Read-Write
         run: Rscript visuals/throughput_report.R benchmark_remote_logs sysbench_remote_oltp_rw_comparison.html "OLTP Read-Write Network"
 
+      - name: Generate Throughput Report for OLTP Read-Only
+        run: Rscript visuals/throughput_report.R benchmark_logs_read_only sysbench_oltp_ro_comparison.html "OLTP Read-Only"
+
       - name: Generate Index Page
         run: Rscript visuals/make_index.R
 
