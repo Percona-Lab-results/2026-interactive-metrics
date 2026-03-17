@@ -11,6 +11,7 @@ THREADS=(1 4 16 32 64 128 256 512)
 
 DBMS_NAME="$1"
 DBMS_VER="$2"
+IS_READ_ONLY="$3"
 CONF_DIR="mysql/conf.d"
 
 # Base Remote Paths
@@ -39,6 +40,10 @@ TABLE_ROWS=5000000
 WARMUP_RO_TIME=180
 WARMUP_RW_TIME=600
 DURATION=900
+
+if [[ "$IS_READ_ONLY" == "1" ]]; then
+    REMOTE_BASE_LOG_DIR="benchmark_remote_logs_read_only"
+fi
 
 # Helper function to run commands on remote host
 remote_exec() {
@@ -247,7 +252,7 @@ MAJOR_VER=$(echo "$RAW_VERSION" | cut -d'.' -f1,2)
 IS_MARIA=$(echo "$RAW_VERSION" | grep -iq "Maria" && echo 1 || echo 0)
 
 # Synchronize directory structures
-LOCAL_LOG_DIR="./benchmark_logs/${DBMS_NAME}/${RAW_VERSION}"
+LOCAL_LOG_DIR="./${REMOTE_BASE_LOG_DIR}/${DBMS_NAME}/${RAW_VERSION}"
 REMOTE_LOG_DIR="${REMOTE_BASE_LOG_DIR}/${DBMS_NAME}/${RAW_VERSION}"
 
 mkdir -p "$LOCAL_LOG_DIR"
@@ -271,14 +276,20 @@ for SIZE in "${POOL_SIZES[@]}"; do
   init_data
   run_mysql_summary "${LOCAL_LOG_DIR}/Tier${SIZE}G"
 
-  # 2. Warmup (Reads then Writes)
+  # 2. Warmup (Reads, then Writes if not read-only mode)
   echo ">>> Warmup A: Read-Only (${WARMUP_RO_TIME}s)..."
   sysbench oltp_read_only --mysql-host=$DB_HOST --mysql-user=$DB_USER --mysql-password=$DB_PASS \
     --mysql-db=$DB_DATABASE --tables=20 --table-size=$TABLE_ROWS --threads=16 --time=$WARMUP_RO_TIME run
 
-  echo ">>> Warmup B: Dirty Writes (${WARMUP_RW_TIME}s)..."
-  sysbench oltp_read_write --mysql-host=$DB_HOST --mysql-user=$DB_USER --mysql-password=$DB_PASS \
-    --mysql-db=$DB_DATABASE --tables=20 --table-size=$TABLE_ROWS --threads=64 --time=$WARMUP_RW_TIME run
+  if [[ "$IS_READ_ONLY" == "1" ]]; then
+    echo "Read-only mode enabled, skipping read-write warmup and benchmarks."
+    TEST_TYPE="oltp_read_only"
+  else
+    echo ">>> Warmup B: Dirty Writes (${WARMUP_RW_TIME}s)..."
+    sysbench oltp_read_write --mysql-host=$DB_HOST --mysql-user=$DB_USER --mysql-password=$DB_PASS \
+      --mysql-db=$DB_DATABASE --tables=20 --table-size=$TABLE_ROWS --threads=64 --time=$WARMUP_RW_TIME run
+    TEST_TYPE="oltp_read_write"
+  fi
 
   # 3. Measurement
   for THREAD in "${THREADS[@]}"; do
@@ -289,7 +300,7 @@ for SIZE in "${POOL_SIZES[@]}"; do
     echo "   >>> Testing ${THREAD} Threads..."
     start_metrics "$REMOTE_PREFIX"
 
-    sysbench oltp_read_write \
+    sysbench $TEST_TYPE \
       --mysql-host=$DB_HOST \
       --mysql-user=$DB_USER \
       --mysql-password=$DB_PASS \
