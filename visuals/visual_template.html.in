@@ -295,7 +295,7 @@ function layoutForMode() {
 }
 
 const BASE_URL = "{{BASE_URL}}";
-const LOG_EXTS = ["iostat.txt", "mpstat.txt", "vmstat.txt"];
+const LOG_EXTS = ["sysbench.txt", "iostat.txt", "mpstat.txt", "vmstat.txt"];
 
 function serverToPath(server) {
   const idx = server.indexOf(' ');
