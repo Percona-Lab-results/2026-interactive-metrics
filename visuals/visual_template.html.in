@@ -10,7 +10,6 @@
       s.src = 'https://cdn.plot.ly/plotly-2.30.0.min.js';
       s.onload = cb;
       s.onerror = function() {
-        // fallback mirror
         var s2 = document.createElement('script');
         s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.30.0/plotly.min.js';
         s2.onload = cb;
@@ -245,6 +244,13 @@ function buildTraces() {
           y: pts.map(p=>p[metric]),
           customdata: pts.map(p=>({server: p.server, mem_gb: p.mem_gb, threads: p.threads, tps: p.tps, qps: p.qps})),
           marker: { size: 10 },
+          hovertemplate:
+            '<b>%{customdata.server}</b><br>' +
+            'Memory: %{customdata.mem_gb}G<br>' +
+            'Threads: %{customdata.threads}<br>' +
+            'TPS: %{customdata.tps:,.0f}<br>' +
+            'QPS: %{customdata.qps:,.0f}' +
+            '<extra></extra>',
         });
       });
     });
@@ -264,6 +270,13 @@ function buildTraces() {
         y: pts.map(p=>p[metric]),
         customdata: pts.map(p=>({server: p.server, mem_gb: p.mem_gb, threads: p.threads, tps: p.tps, qps: p.qps})),
         marker: { size: 10 },
+        hovertemplate:
+          '<b>%{customdata.server}</b><br>' +
+          'Memory: %{customdata.mem_gb}G<br>' +
+          'Threads: %{customdata.threads}<br>' +
+          'TPS: %{customdata.tps:,.0f}<br>' +
+          'QPS: %{customdata.qps:,.0f}' +
+          '<extra></extra>',
       });
     });
   }
@@ -291,6 +304,10 @@ function layoutForMode() {
     yaxis: { title: yTitle, rangemode: 'tozero' },
     margin: { l: 70, r: 20, t: 60, b: 60 },
     hovermode: "closest",
+    hoverlabel: {
+      font: { size: 16 },
+      namelength: -1,
+    },
   };
 }
 
@@ -315,7 +332,6 @@ function showDownloadModal(server, mem_gb, threads, tps, qps) {
   const list = document.getElementById('dlLinks');
   list.innerHTML = '';
 
-  // Per-thread files: Tier{N}G_RW_{T}th.iostat.txt etc.
   LOG_EXTS.forEach(ext => {
     const url = `${BASE_URL}/${path}/${fileBase}.${ext}`;
     const li = document.createElement('li');
@@ -328,7 +344,6 @@ function showDownloadModal(server, mem_gb, threads, tps, qps) {
     list.appendChild(li);
   });
 
-  // Per-memory files: Tier{N}G.status.txt and Tier{N}G.vars.txt
   ["status.txt", "vars.txt", "cnf.txt", "pt-mysql-summary.txt"].forEach(ext => {
     const fname = ext === "pt-mysql-summary.txt" ? `Tier${mem_gb}G-${ext}` : `Tier${mem_gb}G.${ext}`;
     const url = `${BASE_URL}/${path}/${fname}`;
@@ -373,7 +388,7 @@ function init() {
   fillOptions(el("memAnchor"), MEMS);
 
   const defaultServers = SERVERS.filter(s =>
-    s.startsWith("mariadb 10.11.16") || s.startsWith("mariadb 12.1.2") || s.startsWith("mysql 8.0.45") || s.startsWith("mysql 5.7.44")
+    s.startsWith("mariadb 12") || s.startsWith("mysql 8.4") || s.startsWith("mysql 9.6") || s.startsWith("percona-server 8.4")
   );
   setSelected(el("serverSel"), v => defaultServers.includes(v));
   setSelected(el("memSel"), v => Number(v) === 12);
@@ -412,7 +427,6 @@ window.addEventListener('load', function() { loadPlotly(init); });
     <ul id="dlLinks" class="dl-list"></ul>
   </div>
 </div>
-
 
 <script>
 document.getElementById('dlClose').addEventListener('click', closeModal);
