@@ -1,0 +1,31 @@
+# Use your specified MySQL 9.6.0 base image
+FROM mysql:9.6.0
+
+# Switch to root to perform package installations
+USER root
+
+# Create a temporary directory for the RPM extraction
+WORKDIR /tmp/mysql-upgrade
+
+# Copy the RPM bundle tarball into the container
+COPY mysql-9.7.0-er-1.er.el9.x86_64.rpm-bundle.tar .
+
+# Extract, filter, install dependencies, swap minimal for full, and clean up
+RUN tar -xvf mysql-9.7.0-er-1.er.el9.x86_64.rpm-bundle.tar && \
+    # Remove debug, test, and devel packages to prevent image bloat
+    rm -f *debug* *test* *devel* && \
+    # Fetch the missing OS dependencies required by MySQL 9.7.0
+    microdnf install -y perl numactl-libs net-tools procps-ng systemd && \
+    # Erase the conflicting minimal server package (ignoring dependencies)
+    rpm -e --nodeps mysql-community-server-minimal && \
+    # Install the full 9.7.0 packages
+    rpm -Uvh *.rpm && \
+    # Clean up OS package cache and temporary files
+    rm -f /etc/my.cnf /etc/my.cnf.rpmsave && \
+    microdnf clean all && \
+    cd / && rm -rf /tmp/mysql-upgrade
+        
+WORKDIR /
+
+# Switch back to the default mysql user for security
+USER mysql
