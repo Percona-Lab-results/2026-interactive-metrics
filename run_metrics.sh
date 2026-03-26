@@ -5,8 +5,8 @@ DB_HOST="127.0.0.1"   # REPLACE ME
 DB_USER="root"
 DB_PASS="password"
 DB_DATABASE="sbtest"
-POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
-#POOL_SIZES=(2)
+#POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
+POOL_SIZES=(12 2)
 
 THREADS=(1 4 16 32 64 128 256 512)
 #THREADS=(512)
@@ -26,14 +26,20 @@ DBMS_NAME="$1"
 DBMS_VER="$2"
 IS_READ_ONLY="$3"
 
-CONF_D_DIR="mysql/conf.d"
+CONF_D_DIR="/etc/mysql/conf.d"
 
 echo "============= Running benchmarks for ${DBMS_NAME}:${DBMS_VER} ============="
 
 if [[ "$DBMS_NAME" == "percona-server" ]]; then
     IMAGE_PREFIX="percona/"
-    CONF_D_DIR="my.cnf.d"
+    CONF_D_DIR="/etc/my.cnf.d"
 fi
+
+if [[ "$DBMS_NAME" == "custom-mysql" ]]; then
+    # Assume the image was built using RPM with the default config location
+    CONF_D_DIR="/etc"
+fi
+
 
 if [[ "$DBMS_NAME" == "mariadb" ]]; then
     ADMIN_TOOL="mariadb-admin"
@@ -47,7 +53,8 @@ CONTAINER_NAME="dbms-benchmark-test"
 
 MYSQL_ROOT_PASSWORD="password"
 CONFIG_DIR="$HOME/configs"
-CONFIG_PATH="$CONFIG_DIR/config.cnf"
+CONFIG_NAME="my.cnf"
+CONFIG_PATH="${CONFIG_DIR}/${CONFIG_NAME}"
 
 
 server_wait() {
@@ -76,14 +83,29 @@ stop_container() {
 }
 
 run_container() {
-  local DIR=$1
-  docker run --user mysql --rm --name "$CONTAINER_NAME" \
-    --network host \
-    -v "${CONFIG_DIR}:/etc/${CONF_D_DIR}" \
-    -e MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
-    -e MYSQL_DATABASE="$DB_DATABASE" \
-    -e MYSQL_ROOT_HOST='%' \
-    -d ${IMAGE_NAME}
+  local MOUNT=$1
+
+  if [ -n "$MOUNT" ]; then
+    echo "Mounting config from: $CONFIG_PATH"
+    MOUNT_ARG="-v ${CONFIG_PATH}:${CONF_D_DIR}/${CONFIG_NAME}:ro"
+  fi
+
+  # 1. Define the command as an array
+  local cmd=(
+    docker run --user mysql --rm --name "$CONTAINER_NAME"
+    --network host
+    $MOUNT_ARG
+    -e MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD"
+    -e MYSQL_DATABASE="$DB_DATABASE"
+    -e MYSQL_ROOT_HOST='%'
+    -d "${IMAGE_NAME}"
+  )
+
+  # 2. Print the command to the terminal
+  echo "Executing: ${cmd[*]}"
+
+  # 3. Run the command
+  "${cmd[@]}"
 }
 
 # Make sure no containers are running at this stage.
@@ -102,7 +124,7 @@ echo "Removing old config if exists: $CONFIG_PATH"
 sudo rm -rf "$CONFIG_PATH"
 
 # --- THIS NEEDS TO BE DONE IF A VERSION IS "latest" ---
-run_container "$BENCH_DIR"
+run_container
 server_wait 
 
 RAW_VERSION=$(mysql -h $DB_HOST -u $DB_USER -p$DB_PASS -N -e "SELECT VERSION();" 2>/dev/null)
@@ -129,7 +151,7 @@ check_innodb_buffer() {
         echo "Aborting entire benchmark script immediately."
         echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         
-        docker stop "$CONTAINER_NAME" 2>/dev/null
+        # docker stop "$CONTAINER_NAME" 2>/dev/null
         # Immediate termination of the script
         exit 1
     fi
@@ -172,7 +194,7 @@ run_mysql_summary() {
 # --- CONFIGURATION GENERATOR ---
 generate_config() {
     local SIZE=$1
-    local CFG="/tmp/config.cnf"
+    local CFG="/tmp/$CONFIG_NAME"
     rm "$CFG"
 
     # 1. Start Base Config
@@ -245,7 +267,9 @@ generate_config() {
 
     # 4. Deploy Config
     # Ensure directory exists and copy
+    echo "mkdir -p $CONFIG_DIR"
     mkdir -p "$CONFIG_DIR"
+    echo "sudo cp $CFG $CONFIG_DIR"
     sudo cp "$CFG" "$CONFIG_PATH"
     cp "$CFG" "${LOG_DIR}/Tier${SIZE}G.cnf.txt"
 
@@ -295,7 +319,7 @@ for SIZE in "${POOL_SIZES[@]}"; do
   stop_container $CONTAINER_NAME
 
   echo "Starting server with the new config..."
-  run_container "$LOG_DIR" "$CONTAINER_NAME"
+  run_container 1
   server_wait "$CONTAINER_NAME"
   echo "Container restarted with custom config."
   check_innodb_buffer $SIZE
