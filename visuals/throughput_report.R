@@ -1,71 +1,182 @@
 #!/usr/bin/env Rscript
+# =============================================================================
+# generate_sysbench_report.R
+#
+# Scans benchmark_logs/ for *.sysbench.txt files, parses TPS/QPS, and
+# generates the full interactive Plotly comparison HTML.
+#
+# Usage:
+#   Rscript generate_sysbench_report.R [base_dir] [output_file]
+#
+# Defaults:
+#   base_dir    = "benchmark_logs"
+#   output_file = "sysbench_interactive_comparison.html"
+# =============================================================================
 
-# Load necessary libraries
-if (!require("stringr")) install.packages("stringr")
-if (!require("htmltools")) install.packages("htmltools")
+args        <- commandArgs(trailingOnly = TRUE)
+base_dir    <- if (length(args) >= 1) args[1] else "benchmark_logs"
+test_type   <- if (length(args) >= 3) args[3] else "OLTP Read-Write"
 
-library(stringr)
-library(htmltools)
+default_input  <- file.path("visuals", "visual_template.html.in")
+default_output <- file.path(base_dir, "sysbench_interactive_comparison.html")
 
-# Define the base directory
-base_dir <- "benchmark_logs"
+output_file <- if (length(args) >= 2) args[2] else default_output
 
-# 1. Find all .sysbench files recursively
-files <- list.files(path = base_dir, pattern = "\\.sysbench$", recursive = TRUE, full.names = TRUE)
+cat(sprintf("Scanning: %s\n", base_dir))
 
-# Function to extract data and format the header
-process_benchmark_file <- function(file_path) {
-  # Read file content
-  lines <- readLines(file_path, warn = FALSE)
+# ── 1. Find all sysbench result files ─────────────────────────────────────────
+files <- list.files(
+  path       = base_dir,
+  pattern    = "\\.sysbench\\.txt$",
+  recursive  = TRUE,
+  full.names = TRUE
+)
+
+if (length(files) == 0) {
+  stop(sprintf("No .sysbench.txt files found under '%s'", base_dir))
+}
+
+cat(sprintf("Found %d file(s)\n", length(files)))
+
+# ── 2. Parse each file into a data row ────────────────────────────────────────
+# Expected path structure: benchmark_logs/{db_type}/{version}/Tier{N}G_RW_{T}th.sysbench.txt
+parse_file <- function(path) {
+  parts    <- strsplit(path, "/", fixed = TRUE)[[1]]
+  # parts: [base_dir, db_type, version, filename]
+  if (length(parts) < 4) {
+    warning(sprintf("Skipping unexpected path structure: %s", path))
+    return(NULL)
+  }
+
+  db_type  <- parts[length(parts) - 2]
+  version  <- parts[length(parts) - 1]
+  filename <- parts[length(parts)]
+
+  # Extract memory (e.g. 12 from Tier12G_RW_64th.sysbench.txt)
+  mem_match <- regmatches(filename, regexpr("Tier(\\d+)G", filename, perl = TRUE))
+  thr_match <- regmatches(filename, regexpr("_(\\d+)th\\.", filename, perl = TRUE))
+
+  if (length(mem_match) == 0 || length(thr_match) == 0) {
+    warning(sprintf("Cannot parse mem/threads from filename: %s", filename))
+    return(NULL)
+  }
+
+  mem_gb  <- as.integer(sub("Tier(\\d+)G",  "\\1", mem_match))
+  threads <- as.integer(sub("_(\\d+)th\\.", "\\1", thr_match))
+  server  <- paste(db_type, version)
+
+  # Read file and extract TPS / QPS
+  lines   <- readLines(path, warn = FALSE)
   content <- paste(lines, collapse = "\n")
-  
-  # Extract folder parts (e.g., mysql, 9.6.0)
-  path_parts <- str_split(file_path, "/")[[1]]
-  db_type <- path_parts[2]
-  version <- path_parts[3]
-  
-  # Extract info from filename (e.g., Tier32G_RW_64th.sysbench)
-  file_name <- tail(path_parts, 1)
-  memory <- str_extract(file_name, "\\d+G") %>% str_replace("G", "G")
-  concurrency <- str_extract(file_name, "\\d+th")
-  
-  # Create the clean header: mysql - 9.6.0 - 32G - 64th
-  header_title <- sprintf("%s - %s - %s - %s", db_type, version, memory, concurrency)
-  
-  # Extract the specific lines using Regex
-  trans_line <- str_extract(content, "transactions:.*\\)")
-  query_line <- str_extract(content, "queries:.*\\)")
-  
-  # Return as an HTML fragment
-  tags$div(
-    style = "margin-bottom: 20px; font-family: monospace; border-left: 4px solid #333; padding-left: 15px;",
-    tags$h3(header_title, style = "margin-bottom: 5px;"),
-    tags$pre(
-        paste0("    ", trans_line, "\n", "    ", query_line)
-    )
+
+  extract_rate <- function(pattern) {
+    m <- regmatches(content, regexpr(pattern, content, perl = TRUE))
+    if (length(m) == 0) return(NA_real_)
+    as.numeric(sub(".*\\(([0-9.]+) per sec\\.\\).*", "\\1", m))
+  }
+
+  tps <- extract_rate("transactions:.*?\\([0-9.]+ per sec\\.\\)")
+  qps <- extract_rate("queries:.*?\\([0-9.]+ per sec\\.\\)")
+
+  if (is.na(tps) || is.na(qps)) {
+    cat(sprintf("  NA result (skipped): %s\n", path))
+    return(NULL)
+  }
+
+  data.frame(
+    server  = server,
+    mem_gb  = mem_gb,
+    threads = threads,
+    tps     = tps,
+    qps     = qps,
+    stringsAsFactors = FALSE
   )
 }
 
-# 2. Process all files into a list of HTML elements
-report_elements <- lapply(files, process_benchmark_file)
+rows <- lapply(files, parse_file)
+rows <- rows[!sapply(rows, is.null)]
 
-# 3. Wrap in a basic HTML structure
-final_html <- tags$html(
-  tags$head(
-    tags$title("Benchmark Results Report"),
-    tags$style("body { font-family: sans-serif; padding: 40px; background-color: #f4f4f4; }
-                .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }")
-  ),
-  tags$body(
-    tags$div(class = "container",
-      tags$h1("Sysbench Performance Summary"),
-      tags$hr(),
-      report_elements
-    )
-  )
+if (length(rows) == 0) {
+  stop("No valid data rows could be parsed from the files found.")
+}
+
+data <- do.call(rbind, rows)
+cat(sprintf("Parsed %d data rows across %d servers\n",
+            nrow(data), length(unique(data$server))))
+
+# ── 3. Build JS constants ─────────────────────────────────────────────────────
+to_js_array <- function(x) {
+  if (is.character(x)) {
+    paste0('["', paste(x, collapse = '", "'), '"]')
+  } else {
+    paste0("[", paste(x, collapse = ", "), "]")
+  }
+}
+
+to_json_rows <- function(df) {
+  parts <- apply(df, 1, function(r) {
+    sprintf('{"server":"%s","mem_gb":%s,"threads":%s,"tps":%s,"qps":%s}',
+            r["server"], r["mem_gb"], r["threads"], r["tps"], r["qps"])
+  })
+  paste0("[", paste(parts, collapse = ","), "]")
+}
+
+servers_sorted <- sort(unique(data$server))
+mems_sorted    <- sort(unique(data$mem_gb))
+threads_sorted <- sort(unique(data$threads))
+
+# Order data rows consistently
+data <- data[order(data$server, data$mem_gb, data$threads), ]
+
+data_block <- paste0(
+  "const DATA = ", to_json_rows(data), ";\n",
+  "const SERVERS = ", to_js_array(servers_sorted), ";\n",
+  "const MEMS = ", to_js_array(mems_sorted), ";\n",
+  "const THREADS = ", to_js_array(threads_sorted), ";"
 )
 
-# 4. Save to file
-save_html(final_html, "benchmark_report.html")
+# ── 4. Build tick arrays for x-axis (threads mode) ───────────────────────────
+threads_js_vals <- paste0("[", paste(threads_sorted, collapse = ","), "]")
+threads_js_text <- paste0('["', paste(threads_sorted, collapse = '","'), '"]')
 
-cat("Processing complete. Report generated as 'benchmark_report.html'\n")
+# ── 5. Load HTML template ─────────────────────────────────────────────────────
+if (!file.exists(default_input)) {
+  stop(sprintf("Template not found: %s", default_input))
+}
+
+tmpl <- paste(readLines(default_input, warn = FALSE), collapse = "\n")
+
+if (!grepl("{{DATA_BLOCK}}", tmpl, fixed = TRUE)) {
+  stop(sprintf("Template file '%s' is missing the {{DATA_BLOCK}} placeholder.", default_input))
+}
+
+cat(sprintf("Using template: %s\n", default_input))
+
+# ── 6. Inject data and write output ───────────────────────────────────────────
+# Replace data block
+output_html <- sub("{{DATA_BLOCK}}", data_block, tmpl, fixed = TRUE)
+
+# Replace base URL (used in download links)
+output_html <- gsub("{{BASE_URL}}", base_dir, output_html, fixed = TRUE)
+
+# Replace test type
+output_html <- sub("{{TEST_TYPE}}", test_type, output_html, fixed = TRUE)
+
+# Replace tick arrays (keep them in sync with whatever threads were found)
+output_html <- gsub(
+  "tickvals: \\(xMode === \"threads\"\\) \\? \\[.*?\\] : undefined,",
+  paste0('tickvals: (xMode === "threads") ? ', threads_js_vals, ' : undefined,'),
+  output_html, perl = TRUE
+)
+output_html <- gsub(
+  "ticktext: \\(xMode === \"threads\"\\) \\? \\[.*?\\] : undefined,",
+  paste0('ticktext: (xMode === "threads") ? ', threads_js_text, ' : undefined,'),
+  output_html, perl = TRUE
+)
+
+writeLines(output_html, output_file, useBytes = TRUE)
+cat(sprintf("Done. Report written to: %s\n", output_file))
+cat(sprintf("  Servers : %d\n", length(servers_sorted)))
+cat(sprintf("  Memories: %s\n", paste(mems_sorted, collapse = ", ")))
+cat(sprintf("  Threads : %s\n", paste(threads_sorted, collapse = ", ")))
+cat(sprintf("  Records : %d\n", nrow(data)))

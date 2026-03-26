@@ -1,0 +1,445 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Sysbench Interactive Comparison</title>
+  <script>
+    function loadPlotly(cb) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.plot.ly/plotly-2.30.0.min.js';
+      s.onload = cb;
+      s.onerror = function() {
+        var s2 = document.createElement('script');
+        s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.30.0/plotly.min.js';
+        s2.onload = cb;
+        s2.onerror = function() {
+          document.getElementById('chart').innerHTML = '<p style="color:red;padding:20px">Could not load Plotly. Please open this file directly in a browser.</p>';
+        };
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    }
+  </script>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 18px; }
+    .wrap { display: grid; grid-template-columns: 320px 1fr; gap: 18px; align-items: start; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 14px; }
+    label { display:block; font-weight: 600; margin: 10px 0 6px; }
+    select { width: 100%; padding: 8px; border-radius: 10px; border: 1px solid #ccc; }
+    select[multiple] { height: 300px; }
+    .hint { color: #555; font-size: 12px; line-height: 1.4; margin-top: 8px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btnrow { display:flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    button { padding: 8px 10px; border-radius: 10px; border: 1px solid #ccc; background: #f7f7f7; cursor: pointer; }
+    button:hover { background: #eee; }
+    #chart { height: 620px; cursor: crosshair; }
+
+    /* Download modal */
+    #dlOverlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    #dlOverlay.open { display: flex; }
+    #dlModal {
+      background: #fff; border-radius: 14px; padding: 24px 28px;
+      max-width: 580px; width: 94%; box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+      position: relative;
+    }
+    #dlModal h3 { margin: 0 0 4px; font-size: 15px; color: #222; }
+    #dlModal .subtitle { font-size: 12px; color: #888; margin-bottom: 16px; }
+    #dlModal .dl-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+    #dlModal .dl-list li {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 12px; border-radius: 9px; border: 1px solid #e0e0e0;
+      background: #f8f9ff;
+    }
+    #dlModal .dl-list li .ext {
+      background: #1a73e8; color: #fff; border-radius: 5px;
+      padding: 2px 7px; font-size: 11px; font-weight: 700; min-width: 54px;
+      text-align: center; flex-shrink: 0;
+    }
+    #dlModal .dl-list li .fname {
+      flex: 1; font-family: monospace; font-size: 12.5px; color: #333;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #dlModal .dl-list li .actions { display: flex; gap: 6px; flex-shrink: 0; }
+    #dlModal .dl-list li .actions a {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 11px; border-radius: 6px; font-size: 12px; font-weight: 600;
+      text-decoration: none; border: 1px solid; transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    #dlModal .dl-list li .actions .btn-dl {
+      background: #1a73e8; color: #fff; border-color: #1a73e8;
+    }
+    #dlModal .dl-list li .actions .btn-dl:hover { background: #1558b0; border-color: #1558b0; }
+    #dlModal .dl-list li .actions .btn-open {
+      background: #fff; color: #1a73e8; border-color: #1a73e8;
+    }
+    #dlModal .dl-list li .actions .btn-open:hover { background: #e8f0fe; }
+    #dlClose {
+      position: absolute; top: 12px; right: 14px; background: none;
+      border: none; font-size: 22px; cursor: pointer; color: #999; line-height: 1;
+      padding: 2px 6px; border-radius: 6px;
+    }
+    #dlClose:hover { background: #f0f0f0; color: #333; }
+  </style>
+</head>
+<body>
+  <h2>Sysbench Performance — Interactive Comparison</h2>
+  <div class="wrap">
+    <div class="card">
+      <label for="serverSel">Servers (multi-select)</label>
+      <select id="serverSel" multiple></select>
+      <div class="hint">Tip: Ctrl/Cmd-click to select multiple. Use "Select all".</div>
+
+      <div class="row">
+        <div>
+          <label for="memSel">Memory (multi-select)</label>
+          <select id="memSel" multiple></select>
+        </div>
+        <div>
+          <label for="metricSel">Metric</label>
+          <select id="metricSel">
+            <option value="tps" selected>Transactions/sec (TPS)</option>
+            <option value="qps">Queries/sec (QPS)</option>
+          </select>
+
+          <label for="xSel">X axis</label>
+          <select id="xSel">
+            <option value="threads" selected>Threads</option>
+            <option value="mem_gb">Memory (GB)</option>
+          </select>
+
+          <label for="threadsAnchor">When X=Memory, use Threads =</label>
+          <select id="threadsAnchor"></select>
+
+          <label for="memAnchor">When X=Threads, use Memory =</label>
+          <select id="memAnchor"></select>
+        </div>
+      </div>
+
+      <div class="btnrow">
+        <button id="allServersBtn">Select all servers</button>
+        <button id="allMemsBtn">Select all memory</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+
+      <div class="hint">
+        • <b>X=Threads</b>: overlays selected servers at selected memory values (or anchor memory).<br/>
+        • <b>X=Memory</b>: overlays selected servers at the anchor thread count.<br/>
+        Missing points are omitted automatically.
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="chart"></div>
+      <div style="margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div>
+          <div style="font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #333;">
+            Percona pt-summary System Info
+            <a href="benchmark_logs_read_only/pt-summary-full.txt" target="_blank" rel="noopener" style="margin-left: 10px; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; Open full pt-summary</a>
+          </div>
+          <table style="border-collapse: collapse; width: 100%; font-family: monospace; font-size: 13px;">
+            <thead>
+              <tr style="background: #e8eaf0;">
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Property</th>
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Platform</td>     <td style="border: 1px solid #ccc; padding: 4px 12px;">Linux</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Release</td>      <td style="border: 1px solid #ccc; padding: 4px 12px;">Ubuntu 24.04 LTS (noble)</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Kernel</td>       <td style="border: 1px solid #ccc; padding: 4px 12px;">6.8.0-60-generic</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Architecture</td> <td style="border: 1px solid #ccc; padding: 4px 12px;">CPU = 64-bit, OS = 64-bit</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Processors</td>   <td style="border: 1px solid #ccc; padding: 4px 12px;">physical = 2, cores = 40, virtual = 80, hyperthreading = yes</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Models</td>       <td style="border: 1px solid #ccc; padding: 4px 12px;">80x Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Memory Total</td> <td style="border: 1px solid #ccc; padding: 4px 12px;">187.5G</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div style="font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #333;">Sysbench Run Configuration</div>
+          <table style="border-collapse: collapse; width: 100%; font-family: monospace; font-size: 13px;">
+            <thead>
+              <tr style="background: #e8eaf0;">
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Parameter</th>
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test Type</td>      <td style="border: 1px solid #ccc; padding: 4px 12px;">OLTP Read-Only</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Tables</td>         <td style="border: 1px solid #ccc; padding: 4px 12px;">20</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Rows per table</td> <td style="border: 1px solid #ccc; padding: 4px 12px;">5,000,000</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test duration</td>  <td style="border: 1px solid #ccc; padding: 4px 12px;">900s (15 min)</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Scripts and data files</td> <td style="border: 1px solid #ccc; padding: 4px 12px;"><a href="https://github.com/Percona-Lab-results/2026-interactive-metrics/tree/test-data" target="_blank" rel="noopener" style="font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; GitHub</a></td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Schema</td> <td style="border: 1px solid #ccc; padding: 4px 12px;"><a href="https://percona-lab-results.github.io/2026-interactive-metrics/schema_dump.sql" download="schema_dump.sql" style="font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8595; Download SQL</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const DATA = [{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb": 2,"threads":  1,"tps":  187.95,"qps":  3007.14},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb": 2,"threads":  4,"tps":  519.68,"qps":  8314.80},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb": 2,"threads": 16,"tps": 1390.21,"qps": 22243.35},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb": 2,"threads": 32,"tps": 1668.20,"qps": 26691.16},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb": 2,"threads": 64,"tps": 1690.95,"qps": 27055.24},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb": 2,"threads":128,"tps": 1695.97,"qps": 27135.49},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb": 2,"threads":256,"tps": 1703.93,"qps": 27262.91},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb": 2,"threads":512,"tps": 1691.04,"qps": 27056.70},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":12,"threads":  1,"tps":  305.49,"qps":  4887.86},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":12,"threads":  4,"tps":  980.02,"qps": 15680.36},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":12,"threads": 16,"tps": 2710.70,"qps": 43371.24},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":12,"threads": 32,"tps": 3466.40,"qps": 55462.48},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":12,"threads": 64,"tps": 3516.96,"qps": 56271.42},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":12,"threads":128,"tps": 3537.72,"qps": 56603.56},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":12,"threads":256,"tps": 3511.43,"qps": 56182.83},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":12,"threads":512,"tps": 3536.78,"qps": 56588.41},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":32,"threads":  1,"tps":  962.23,"qps": 15395.64},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":32,"threads":  4,"tps": 3666.79,"qps": 58668.62},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":32,"threads": 16,"tps":12219.98,"qps":195519.75},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":32,"threads": 32,"tps":20210.78,"qps":323372.48},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":32,"threads": 64,"tps":25819.59,"qps":413113.48},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":32,"threads":128,"tps":32391.98,"qps":518271.62},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":32,"threads":256,"tps":31111.18,"qps":497778.96},{"server":"mariadb 10.11.16-MariaDB-ubu2204","mem_gb":32,"threads":512,"tps":29541.92,"qps":472670.66},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb": 2,"threads":  1,"tps":  176.91,"qps":  2830.54},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb": 2,"threads":  4,"tps":  524.01,"qps":  8384.11},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb": 2,"threads": 16,"tps": 1367.65,"qps": 21882.38},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb": 2,"threads": 32,"tps": 1664.30,"qps": 26628.77},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb": 2,"threads": 64,"tps": 1693.96,"qps": 27103.39},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb": 2,"threads":128,"tps": 1697.42,"qps": 27158.71},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb": 2,"threads":256,"tps": 1708.04,"qps": 27328.64},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb": 2,"threads":512,"tps": 1731.76,"qps": 27708.22},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":12,"threads":  1,"tps":  267.94,"qps":  4287.07},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":12,"threads":  4,"tps":  879.42,"qps": 14070.73},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":12,"threads": 16,"tps": 2590.11,"qps": 41441.78},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":12,"threads": 32,"tps": 3457.42,"qps": 55318.71},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":12,"threads": 64,"tps": 3536.35,"qps": 56581.52},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":12,"threads":128,"tps": 3562.42,"qps": 56998.77},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":12,"threads":256,"tps": 3563.57,"qps": 57017.14},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":12,"threads":512,"tps": 3607.35,"qps": 57717.56},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":32,"threads":  1,"tps":  745.95,"qps": 11935.23},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":32,"threads":  4,"tps": 2812.06,"qps": 44993.02},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":32,"threads": 16,"tps": 9494.76,"qps":151916.16},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":32,"threads": 32,"tps":15121.50,"qps":241943.96},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":32,"threads": 64,"tps":19222.60,"qps":307561.68},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":32,"threads":128,"tps":23357.30,"qps":373716.83},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":32,"threads":256,"tps":22532.31,"qps":360516.91},{"server":"mariadb 11.4.10-MariaDB-ubu2404","mem_gb":32,"threads":512,"tps":21580.08,"qps":345281.32},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb": 2,"threads":  1,"tps":  175.12,"qps":  2801.96},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb": 2,"threads":  4,"tps":  516.38,"qps":  8262.10},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb": 2,"threads": 16,"tps": 1366.84,"qps": 21869.49},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb": 2,"threads": 32,"tps": 1672.97,"qps": 26767.45},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb": 2,"threads": 64,"tps": 1725.84,"qps": 27613.43},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb": 2,"threads":128,"tps": 1740.33,"qps": 27845.29},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb": 2,"threads":256,"tps": 1753.38,"qps": 28054.07},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb": 2,"threads":512,"tps": 1740.55,"qps": 27848.78},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":12,"threads":  1,"tps":  274.29,"qps":  4388.65},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":12,"threads":  4,"tps":  907.95,"qps": 14527.13},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":12,"threads": 16,"tps": 2597.45,"qps": 41559.25},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":12,"threads": 32,"tps": 3459.38,"qps": 55350.03},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":12,"threads": 64,"tps": 3515.41,"qps": 56246.57},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":12,"threads":128,"tps": 3537.30,"qps": 56596.79},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":12,"threads":256,"tps": 3530.08,"qps": 56481.29},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":12,"threads":512,"tps": 3531.00,"qps": 56496.07},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":32,"threads":  1,"tps":  748.89,"qps": 11982.21},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":32,"threads":  4,"tps": 2946.20,"qps": 47139.23},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":32,"threads": 16,"tps": 9790.46,"qps":156647.29},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":32,"threads": 32,"tps":15499.34,"qps":247989.52},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":32,"threads": 64,"tps":19758.58,"qps":316137.35},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":32,"threads":128,"tps":24108.08,"qps":385729.32},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":32,"threads":256,"tps":23233.76,"qps":371740.17},{"server":"mariadb 12.1.2-MariaDB-ubu2404","mem_gb":32,"threads":512,"tps":22174.29,"qps":354788.57},{"server":"mysql 5.7.44","mem_gb": 2,"threads":  1,"tps":  159.12,"qps":  2546.00},{"server":"mysql 5.7.44","mem_gb": 2,"threads":  4,"tps":  490.07,"qps":  7841.13},{"server":"mysql 5.7.44","mem_gb": 2,"threads": 16,"tps": 1357.93,"qps": 21726.96},{"server":"mysql 5.7.44","mem_gb": 2,"threads": 32,"tps": 1674.78,"qps": 26796.42},{"server":"mysql 5.7.44","mem_gb": 2,"threads": 64,"tps": 1717.36,"qps": 27477.72},{"server":"mysql 5.7.44","mem_gb": 2,"threads":128,"tps": 1728.12,"qps": 27649.91},{"server":"mysql 5.7.44","mem_gb": 2,"threads":256,"tps": 1717.72,"qps": 27483.53},{"server":"mysql 5.7.44","mem_gb": 2,"threads":512,"tps": 1721.68,"qps": 27546.87},{"server":"mysql 5.7.44","mem_gb":12,"threads":  1,"tps":  226.39,"qps":  3622.24},{"server":"mysql 5.7.44","mem_gb":12,"threads":  4,"tps":  769.85,"qps": 12317.63},{"server":"mysql 5.7.44","mem_gb":12,"threads": 16,"tps": 2094.78,"qps": 33516.43},{"server":"mysql 5.7.44","mem_gb":12,"threads": 32,"tps": 2619.04,"qps": 41904.67},{"server":"mysql 5.7.44","mem_gb":12,"threads": 64,"tps": 2635.09,"qps": 42161.37},{"server":"mysql 5.7.44","mem_gb":12,"threads":128,"tps": 2583.55,"qps": 41336.75},{"server":"mysql 5.7.44","mem_gb":12,"threads":256,"tps": 2517.95,"qps": 40287.19},{"server":"mysql 5.7.44","mem_gb":12,"threads":512,"tps": 2460.06,"qps": 39360.93},{"server":"mysql 5.7.44","mem_gb":32,"threads":  1,"tps":  642.28,"qps": 10276.50},{"server":"mysql 5.7.44","mem_gb":32,"threads":  4,"tps": 2645.10,"qps": 42321.65},{"server":"mysql 5.7.44","mem_gb":32,"threads": 16,"tps": 8854.86,"qps":141677.81},{"server":"mysql 5.7.44","mem_gb":32,"threads": 32,"tps":13683.54,"qps":218936.69},{"server":"mysql 5.7.44","mem_gb":32,"threads": 64,"tps":13112.52,"qps":209800.30},{"server":"mysql 5.7.44","mem_gb":32,"threads":128,"tps":11810.20,"qps":188963.16},{"server":"mysql 5.7.44","mem_gb":32,"threads":256,"tps": 6975.54,"qps":111608.59},{"server":"mysql 5.7.44","mem_gb":32,"threads":512,"tps": 3889.41,"qps": 62230.49},{"server":"mysql 8.0.45","mem_gb": 2,"threads":  1,"tps":  157.51,"qps":  2520.17},{"server":"mysql 8.0.45","mem_gb": 2,"threads":  4,"tps":  519.64,"qps":  8314.20},{"server":"mysql 8.0.45","mem_gb": 2,"threads": 16,"tps": 1400.56,"qps": 22409.03},{"server":"mysql 8.0.45","mem_gb": 2,"threads": 32,"tps": 1685.51,"qps": 26968.14},{"server":"mysql 8.0.45","mem_gb": 2,"threads": 64,"tps": 1711.61,"qps": 27385.84},{"server":"mysql 8.0.45","mem_gb": 2,"threads":128,"tps": 1724.96,"qps": 27599.29},{"server":"mysql 8.0.45","mem_gb": 2,"threads":256,"tps": 1716.34,"qps": 27461.50},{"server":"mysql 8.0.45","mem_gb": 2,"threads":512,"tps":  580.06,"qps":  9281.03},{"server":"mysql 8.0.45","mem_gb":12,"threads":  1,"tps":  237.38,"qps":  3798.09},{"server":"mysql 8.0.45","mem_gb":12,"threads":  4,"tps":  873.90,"qps": 13982.34},{"server":"mysql 8.0.45","mem_gb":12,"threads": 16,"tps": 2570.42,"qps": 41126.67},{"server":"mysql 8.0.45","mem_gb":12,"threads": 32,"tps": 3415.92,"qps": 54654.67},{"server":"mysql 8.0.45","mem_gb":12,"threads": 64,"tps": 3478.45,"qps": 55655.12},{"server":"mysql 8.0.45","mem_gb":12,"threads":128,"tps": 3512.33,"qps": 56197.22},{"server":"mysql 8.0.45","mem_gb":12,"threads":256,"tps": 3497.00,"qps": 55951.98},{"server":"mysql 8.0.45","mem_gb":12,"threads":512,"tps": 3510.71,"qps": 56171.41},{"server":"mysql 8.0.45","mem_gb":32,"threads":  1,"tps":  720.29,"qps": 11524.62},{"server":"mysql 8.0.45","mem_gb":32,"threads":  4,"tps": 2945.22,"qps": 47123.54},{"server":"mysql 8.0.45","mem_gb":32,"threads": 16,"tps": 9658.83,"qps":154541.35},{"server":"mysql 8.0.45","mem_gb":32,"threads": 32,"tps":15255.47,"qps":244087.58},{"server":"mysql 8.0.45","mem_gb":32,"threads": 64,"tps":19140.55,"qps":306248.75},{"server":"mysql 8.0.45","mem_gb":32,"threads":128,"tps":22400.46,"qps":358407.39},{"server":"mysql 8.0.45","mem_gb":32,"threads":256,"tps":21471.04,"qps":343536.62},{"server":"mysql 8.0.45","mem_gb":32,"threads":512,"tps":20585.62,"qps":329369.94},{"server":"mysql 8.4.8","mem_gb": 2,"threads":  1,"tps":  166.07,"qps":  2657.17},{"server":"mysql 8.4.8","mem_gb": 2,"threads":  4,"tps":  504.30,"qps":  8068.79},{"server":"mysql 8.4.8","mem_gb": 2,"threads": 16,"tps": 1372.44,"qps": 21959.05},{"server":"mysql 8.4.8","mem_gb": 2,"threads": 32,"tps": 1679.57,"qps": 26873.08},{"server":"mysql 8.4.8","mem_gb": 2,"threads": 64,"tps": 1693.59,"qps": 27097.47},{"server":"mysql 8.4.8","mem_gb": 2,"threads":128,"tps": 1716.77,"qps": 27468.37},{"server":"mysql 8.4.8","mem_gb": 2,"threads":256,"tps": 1546.88,"qps": 24750.10},{"server":"mysql 8.4.8","mem_gb": 2,"threads":512,"tps":  456.99,"qps":  7311.76},{"server":"mysql 8.4.8","mem_gb":12,"threads":  1,"tps":  262.98,"qps":  4207.64},{"server":"mysql 8.4.8","mem_gb":12,"threads":  4,"tps":  887.05,"qps": 14192.87},{"server":"mysql 8.4.8","mem_gb":12,"threads": 16,"tps": 2647.10,"qps": 42353.55},{"server":"mysql 8.4.8","mem_gb":12,"threads": 32,"tps": 3558.05,"qps": 56928.77},{"server":"mysql 8.4.8","mem_gb":12,"threads": 64,"tps": 3638.20,"qps": 58211.14},{"server":"mysql 8.4.8","mem_gb":12,"threads":128,"tps": 3641.62,"qps": 58265.86},{"server":"mysql 8.4.8","mem_gb":12,"threads":256,"tps": 3635.52,"qps": 58168.29},{"server":"mysql 8.4.8","mem_gb":12,"threads":512,"tps": 3670.30,"qps": 58724.87},{"server":"mysql 8.4.8","mem_gb":32,"threads":  1,"tps":  740.05,"qps": 11840.81},{"server":"mysql 8.4.8","mem_gb":32,"threads":  4,"tps": 2830.41,"qps": 45286.53},{"server":"mysql 8.4.8","mem_gb":32,"threads": 16,"tps": 9522.41,"qps":152358.61},{"server":"mysql 8.4.8","mem_gb":32,"threads": 32,"tps":15120.91,"qps":241934.50},{"server":"mysql 8.4.8","mem_gb":32,"threads": 64,"tps":19277.86,"qps":308445.74},{"server":"mysql 8.4.8","mem_gb":32,"threads":128,"tps":23414.39,"qps":374630.25},{"server":"mysql 8.4.8","mem_gb":32,"threads":256,"tps":22399.83,"qps":358397.26},{"server":"mysql 8.4.8","mem_gb":32,"threads":512,"tps":20988.90,"qps":335822.43},{"server":"mysql 9.6.0","mem_gb": 2,"threads":  1,"tps":  165.50,"qps":  2648.08},{"server":"mysql 9.6.0","mem_gb": 2,"threads":  4,"tps":  489.32,"qps":  7829.19},{"server":"mysql 9.6.0","mem_gb": 2,"threads": 16,"tps": 1372.24,"qps": 21955.87},{"server":"mysql 9.6.0","mem_gb": 2,"threads": 32,"tps": 1676.46,"qps": 26823.43},{"server":"mysql 9.6.0","mem_gb": 2,"threads": 64,"tps": 1701.26,"qps": 27220.09},{"server":"mysql 9.6.0","mem_gb": 2,"threads":128,"tps": 1710.74,"qps": 27371.81},{"server":"mysql 9.6.0","mem_gb": 2,"threads":256,"tps": 1377.42,"qps": 22038.71},{"server":"mysql 9.6.0","mem_gb": 2,"threads":512,"tps":  440.26,"qps":  7044.16},{"server":"mysql 9.6.0","mem_gb":12,"threads":  1,"tps":  261.10,"qps":  4177.66},{"server":"mysql 9.6.0","mem_gb":12,"threads":  4,"tps":  906.54,"qps": 14504.71},{"server":"mysql 9.6.0","mem_gb":12,"threads": 16,"tps": 2648.61,"qps": 42377.76},{"server":"mysql 9.6.0","mem_gb":12,"threads": 32,"tps": 3556.56,"qps": 56904.92},{"server":"mysql 9.6.0","mem_gb":12,"threads": 64,"tps": 3595.01,"qps": 57520.18},{"server":"mysql 9.6.0","mem_gb":12,"threads":128,"tps": 3619.62,"qps": 57913.86},{"server":"mysql 9.6.0","mem_gb":12,"threads":256,"tps": 3631.05,"qps": 58096.87},{"server":"mysql 9.6.0","mem_gb":12,"threads":512,"tps": 3631.47,"qps": 58103.54},{"server":"mysql 9.6.0","mem_gb":32,"threads":  1,"tps":  747.68,"qps": 11962.85},{"server":"mysql 9.6.0","mem_gb":32,"threads":  4,"tps": 2837.13,"qps": 45394.13},{"server":"mysql 9.6.0","mem_gb":32,"threads": 16,"tps": 9597.47,"qps":153559.46},{"server":"mysql 9.6.0","mem_gb":32,"threads": 32,"tps":15129.76,"qps":242076.22},{"server":"mysql 9.6.0","mem_gb":32,"threads": 64,"tps":19244.72,"qps":307915.58},{"server":"mysql 9.6.0","mem_gb":32,"threads":128,"tps":23059.57,"qps":368953.06},{"server":"mysql 9.6.0","mem_gb":32,"threads":256,"tps":21980.13,"qps":351682.13},{"server":"mysql 9.6.0","mem_gb":32,"threads":512,"tps":20597.09,"qps":329553.48},{"server":"percona-server 5.7.44-48","mem_gb": 2,"threads":  1,"tps":  165.16,"qps":  2642.61},{"server":"percona-server 5.7.44-48","mem_gb": 2,"threads":  4,"tps":  480.38,"qps":  7686.14},{"server":"percona-server 5.7.44-48","mem_gb": 2,"threads": 16,"tps": 1361.14,"qps": 21778.29},{"server":"percona-server 5.7.44-48","mem_gb": 2,"threads": 32,"tps": 1683.44,"qps": 26934.98},{"server":"percona-server 5.7.44-48","mem_gb": 2,"threads": 64,"tps": 1692.50,"qps": 27079.93},{"server":"percona-server 5.7.44-48","mem_gb": 2,"threads":128,"tps": 1693.94,"qps": 27103.02},{"server":"percona-server 5.7.44-48","mem_gb": 2,"threads":256,"tps": 1700.59,"qps": 27209.50},{"server":"percona-server 5.7.44-48","mem_gb": 2,"threads":512,"tps": 1701.77,"qps": 27228.26},{"server":"percona-server 5.7.44-48","mem_gb":12,"threads":  1,"tps":  238.40,"qps":  3814.40},{"server":"percona-server 5.7.44-48","mem_gb":12,"threads":  4,"tps":  847.35,"qps": 13557.67},{"server":"percona-server 5.7.44-48","mem_gb":12,"threads": 16,"tps": 2480.13,"qps": 39682.08},{"server":"percona-server 5.7.44-48","mem_gb":12,"threads": 32,"tps": 3384.62,"qps": 54153.88},{"server":"percona-server 5.7.44-48","mem_gb":12,"threads": 64,"tps": 3420.60,"qps": 54729.67},{"server":"percona-server 5.7.44-48","mem_gb":12,"threads":128,"tps": 3437.35,"qps": 54997.53},{"server":"percona-server 5.7.44-48","mem_gb":12,"threads":256,"tps": 3440.41,"qps": 55046.61},{"server":"percona-server 5.7.44-48","mem_gb":12,"threads":512,"tps": 3442.45,"qps": 55079.13},{"server":"percona-server 5.7.44-48","mem_gb":32,"threads":  1,"tps":  643.93,"qps": 10302.83},{"server":"percona-server 5.7.44-48","mem_gb":32,"threads":  4,"tps": 2626.68,"qps": 42026.89},{"server":"percona-server 5.7.44-48","mem_gb":32,"threads": 16,"tps": 8707.12,"qps":139313.94},{"server":"percona-server 5.7.44-48","mem_gb":32,"threads": 32,"tps":14363.46,"qps":229815.37},{"server":"percona-server 5.7.44-48","mem_gb":32,"threads": 64,"tps":18587.69,"qps":297403.07},{"server":"percona-server 5.7.44-48","mem_gb":32,"threads":128,"tps":22545.55,"qps":360728.85},{"server":"percona-server 5.7.44-48","mem_gb":32,"threads":256,"tps":21656.39,"qps":346502.19},{"server":"percona-server 5.7.44-48","mem_gb":32,"threads":512,"tps":20838.06,"qps":333409.01},{"server":"percona-server 8.0.45-36","mem_gb": 2,"threads":  1,"tps":  155.40,"qps":  2486.33},{"server":"percona-server 8.0.45-36","mem_gb": 2,"threads":  4,"tps":  504.44,"qps":  8071.04},{"server":"percona-server 8.0.45-36","mem_gb": 2,"threads": 16,"tps": 1400.73,"qps": 22411.73},{"server":"percona-server 8.0.45-36","mem_gb": 2,"threads": 32,"tps": 1690.94,"qps": 27055.08},{"server":"percona-server 8.0.45-36","mem_gb": 2,"threads": 64,"tps": 1721.44,"qps": 27543.08},{"server":"percona-server 8.0.45-36","mem_gb": 2,"threads":128,"tps": 1748.43,"qps": 27974.95},{"server":"percona-server 8.0.45-36","mem_gb": 2,"threads":256,"tps": 1732.73,"qps": 27723.71},{"server":"percona-server 8.0.45-36","mem_gb": 2,"threads":512,"tps": 1727.65,"qps": 27642.44},{"server":"percona-server 8.0.45-36","mem_gb":12,"threads":  1,"tps":  249.27,"qps":  3988.33},{"server":"percona-server 8.0.45-36","mem_gb":12,"threads":  4,"tps":  857.53,"qps": 13720.50},{"server":"percona-server 8.0.45-36","mem_gb":12,"threads": 16,"tps": 2574.97,"qps": 41199.59},{"server":"percona-server 8.0.45-36","mem_gb":12,"threads": 32,"tps": 3422.74,"qps": 54763.86},{"server":"percona-server 8.0.45-36","mem_gb":12,"threads": 64,"tps": 3497.69,"qps": 55963.08},{"server":"percona-server 8.0.45-36","mem_gb":12,"threads":128,"tps": 3536.57,"qps": 56585.19},{"server":"percona-server 8.0.45-36","mem_gb":12,"threads":256,"tps": 3542.79,"qps": 56684.58},{"server":"percona-server 8.0.45-36","mem_gb":12,"threads":512,"tps": 3515.61,"qps": 56249.74},{"server":"percona-server 8.0.45-36","mem_gb":32,"threads":  1,"tps":  714.26,"qps": 11428.21},{"server":"percona-server 8.0.45-36","mem_gb":32,"threads":  4,"tps": 2943.93,"qps": 47102.83},{"server":"percona-server 8.0.45-36","mem_gb":32,"threads": 16,"tps": 9723.86,"qps":155581.70},{"server":"percona-server 8.0.45-36","mem_gb":32,"threads": 32,"tps":14965.71,"qps":239451.33},{"server":"percona-server 8.0.45-36","mem_gb":32,"threads": 64,"tps":18394.29,"qps":294308.57},{"server":"percona-server 8.0.45-36","mem_gb":32,"threads":128,"tps":21647.44,"qps":346359.03},{"server":"percona-server 8.0.45-36","mem_gb":32,"threads":256,"tps":20518.81,"qps":328301.03},{"server":"percona-server 8.0.45-36","mem_gb":32,"threads":512,"tps":20020.31,"qps":320325.03},{"server":"percona-server 8.4.7-7","mem_gb": 2,"threads":  1,"tps":  164.62,"qps":  2633.93},{"server":"percona-server 8.4.7-7","mem_gb": 2,"threads":  4,"tps":  482.89,"qps":  7726.18},{"server":"percona-server 8.4.7-7","mem_gb": 2,"threads": 16,"tps": 1375.10,"qps": 22001.64},{"server":"percona-server 8.4.7-7","mem_gb": 2,"threads": 32,"tps": 1681.93,"qps": 26910.87},{"server":"percona-server 8.4.7-7","mem_gb": 2,"threads": 64,"tps": 1712.15,"qps": 27394.43},{"server":"percona-server 8.4.7-7","mem_gb": 2,"threads":128,"tps": 1718.90,"qps": 27502.43},{"server":"percona-server 8.4.7-7","mem_gb": 2,"threads":256,"tps":  884.36,"qps": 14149.70},{"server":"percona-server 8.4.7-7","mem_gb": 2,"threads":512,"tps":  427.77,"qps":  6844.25},{"server":"percona-server 8.4.7-7","mem_gb":12,"threads":  1,"tps":  263.27,"qps":  4212.36},{"server":"percona-server 8.4.7-7","mem_gb":12,"threads":  4,"tps":  872.22,"qps": 13955.59},{"server":"percona-server 8.4.7-7","mem_gb":12,"threads": 16,"tps": 2646.49,"qps": 42343.83},{"server":"percona-server 8.4.7-7","mem_gb":12,"threads": 32,"tps": 3555.58,"qps": 56889.23},{"server":"percona-server 8.4.7-7","mem_gb":12,"threads": 64,"tps": 3619.86,"qps": 57917.81},{"server":"percona-server 8.4.7-7","mem_gb":12,"threads":128,"tps": 3633.65,"qps": 58138.43},{"server":"percona-server 8.4.7-7","mem_gb":12,"threads":256,"tps": 3623.82,"qps": 57981.15},{"server":"percona-server 8.4.7-7","mem_gb":12,"threads":512,"tps": 3620.58,"qps": 57929.21},{"server":"percona-server 8.4.7-7","mem_gb":32,"threads":  1,"tps":  738.76,"qps": 11820.14},{"server":"percona-server 8.4.7-7","mem_gb":32,"threads":  4,"tps": 2818.41,"qps": 45094.57},{"server":"percona-server 8.4.7-7","mem_gb":32,"threads": 16,"tps": 9570.69,"qps":153131.06},{"server":"percona-server 8.4.7-7","mem_gb":32,"threads": 32,"tps":15170.03,"qps":242720.52},{"server":"percona-server 8.4.7-7","mem_gb":32,"threads": 64,"tps":19215.30,"qps":307444.79},{"server":"percona-server 8.4.7-7","mem_gb":32,"threads":128,"tps":23262.96,"qps":372207.30},{"server":"percona-server 8.4.7-7","mem_gb":32,"threads":256,"tps":22228.15,"qps":355650.45},{"server":"percona-server 8.4.7-7","mem_gb":32,"threads":512,"tps":20914.27,"qps":334628.36}];
+const SERVERS = ["mariadb 10.11.16-MariaDB-ubu2204", "mariadb 11.4.10-MariaDB-ubu2404", "mariadb 12.1.2-MariaDB-ubu2404", "mysql 5.7.44", "mysql 8.0.45", "mysql 8.4.8", "mysql 9.6.0", "percona-server 5.7.44-48", "percona-server 8.0.45-36", "percona-server 8.4.7-7"];
+const MEMS = [2, 12, 32];
+const THREADS = [1, 4, 16, 32, 64, 128, 256, 512];
+
+function el(id) { return document.getElementById(id); }
+
+function fillOptions(selectEl, values, formatter=(v)=>v) {
+  selectEl.innerHTML = "";
+  values.forEach(v => {
+    const opt = document.createElement("option");
+    opt.value = v;
+    opt.textContent = formatter(v);
+    selectEl.appendChild(opt);
+  });
+}
+
+function getSelectedValues(selectEl) {
+  return Array.from(selectEl.selectedOptions).map(o => o.value);
+}
+
+function setSelected(selectEl, predicate) {
+  Array.from(selectEl.options).forEach(opt => {
+    opt.selected = predicate(opt.value);
+  });
+}
+
+function numeric(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function buildTraces() {
+  const metric = el("metricSel").value;
+  const xMode = el("xSel").value;
+
+  const selectedServers = getSelectedValues(el("serverSel"));
+  const selectedMems = getSelectedValues(el("memSel")).map(numeric).filter(v => v !== null);
+
+  const anchorThreads = numeric(el("threadsAnchor").value);
+  const anchorMem = numeric(el("memAnchor").value);
+
+  const servers = selectedServers.length ? selectedServers : [SERVERS[0]];
+  const mems = selectedMems.length ? selectedMems : [anchorMem];
+
+  const traces = [];
+
+  if (xMode === "threads") {
+    servers.forEach(server => {
+      mems.forEach(mem => {
+        const pts = DATA
+          .filter(r => r.server === server && r.mem_gb === mem && r[metric] !== null)
+          .sort((a,b)=>a.threads-b.threads);
+
+        if (!pts.length) return;
+
+        traces.push({
+          type: "scatter",
+          mode: "lines+markers",
+          name: `${server} | ${mem}G`,
+          x: pts.map(p=>p.threads),
+          y: pts.map(p=>p[metric]),
+          customdata: pts.map(p=>({server: p.server, mem_gb: p.mem_gb, threads: p.threads, tps: p.tps, qps: p.qps})),
+          marker: { size: 10 },
+          hovertemplate:
+            '<b>%{customdata.server}</b><br>' +
+            'Memory: %{customdata.mem_gb}G<br>' +
+            'Threads: %{customdata.threads}<br>' +
+            'TPS: %{customdata.tps:,.0f}<br>' +
+            'QPS: %{customdata.qps:,.0f}' +
+            '<extra></extra>',
+        });
+      });
+    });
+  } else {
+    servers.forEach(server => {
+      const pts = DATA
+        .filter(r => r.server === server && r.threads === anchorThreads && r[metric] !== null)
+        .sort((a,b)=>a.mem_gb-b.mem_gb);
+
+      if (!pts.length) return;
+
+      traces.push({
+        type: "scatter",
+        mode: "lines+markers",
+        name: `${server} | ${anchorThreads} threads`,
+        x: pts.map(p=>p.mem_gb),
+        y: pts.map(p=>p[metric]),
+        customdata: pts.map(p=>({server: p.server, mem_gb: p.mem_gb, threads: p.threads, tps: p.tps, qps: p.qps})),
+        marker: { size: 10 },
+        hovertemplate:
+          '<b>%{customdata.server}</b><br>' +
+          'Memory: %{customdata.mem_gb}G<br>' +
+          'Threads: %{customdata.threads}<br>' +
+          'TPS: %{customdata.tps:,.0f}<br>' +
+          'QPS: %{customdata.qps:,.0f}' +
+          '<extra></extra>',
+      });
+    });
+  }
+
+  return traces;
+}
+
+function layoutForMode() {
+  const metric = el("metricSel").value;
+  const xMode = el("xSel").value;
+  const yTitle = (metric === "tps") ? "Transactions per second (TPS)" : "Queries per second (QPS)";
+  const xTitle = (xMode === "threads") ? "Threads" : "Memory (GB)";
+  const title = (xMode === "threads")
+    ? `Sysbench: ${yTitle} vs Threads`
+    : `Sysbench: ${yTitle} vs Memory`;
+
+  return {
+    title: { text: title },
+    xaxis: {
+      title: xTitle,
+      type: (xMode === "threads") ? "log" : "linear",
+      tickvals: (xMode === "threads") ? [1,4,16,32,64,128,256,512] : undefined,
+      ticktext: (xMode === "threads") ? ["1","4","16","32","64","128","256","512"] : undefined,
+    },
+    yaxis: { title: yTitle, rangemode: 'tozero' },
+    margin: { l: 70, r: 20, t: 60, b: 60 },
+    hovermode: "closest",
+    hoverlabel: {
+      font: { size: 16 },
+      namelength: -1,
+    },
+  };
+}
+
+const BASE_URL = "benchmark_logs_read_only";
+const LOG_EXTS = ["sysbench.txt", "iostat.txt", "mpstat.txt", "vmstat.txt"];
+
+function serverToPath(server) {
+  const idx = server.indexOf(' ');
+  return server.slice(0, idx) + '/' + server.slice(idx + 1);
+}
+
+function buildFileBase(mem_gb, threads) {
+  return `Tier${mem_gb}G_RW_${threads}th`;
+}
+
+function showDownloadModal(server, mem_gb, threads, tps, qps) {
+  const path = serverToPath(server);
+  const fileBase = buildFileBase(mem_gb, threads);
+  document.getElementById('dlTitle').textContent = server;
+  document.getElementById('dlSubtitle').textContent =
+    `Memory: ${mem_gb}G  ·  Threads: ${threads}  ·  TPS: ${tps.toLocaleString()}  ·  QPS: ${qps.toLocaleString()}`;
+  const list = document.getElementById('dlLinks');
+  list.innerHTML = '';
+
+  LOG_EXTS.forEach(ext => {
+    const url = `${BASE_URL}/${path}/${fileBase}.${ext}`;
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <span class="ext">.${ext}</span>
+      <span class="fname">${fileBase}.${ext}</span>
+      <span class="actions">
+        <a class="btn-open" href="${url}" target="_blank" rel="noopener" title="Open in new tab">&#8599; Open</a>
+      </span>`;
+    list.appendChild(li);
+  });
+
+  ["status.txt", "vars.txt", "cnf.txt", "pt-mysql-summary.txt"].forEach(ext => {
+    const fname = ext === "pt-mysql-summary.txt" ? `Tier${mem_gb}G-${ext}` : `Tier${mem_gb}G.${ext}`;
+    const url = `${BASE_URL}/${path}/${fname}`;
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <span class="ext">.${ext}</span>
+      <span class="fname">${fname}</span>
+      <span class="actions">
+        <a class="btn-open" href="${url}" target="_blank" rel="noopener" title="Open in new tab">&#8599; Open</a>
+      </span>`;
+    list.appendChild(li);
+  });
+
+  document.getElementById('dlOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('dlOverlay').classList.remove('open');
+}
+
+function attachPlotlyClick() {
+  const chartDiv = document.getElementById('chart');
+  chartDiv.removeAllListeners('plotly_click');
+  chartDiv.on('plotly_click', function(eventData) {
+    if (!eventData || !eventData.points || !eventData.points.length) return;
+    const pt = eventData.points[0];
+    const d = pt.customdata;
+    if (!d) return;
+    showDownloadModal(d.server, d.mem_gb, d.threads, d.tps, d.qps);
+  });
+}
+
+function render() {
+  Plotly.react("chart", buildTraces(), layoutForMode(), {responsive: true})
+    .then(attachPlotlyClick);
+}
+
+function init() {
+  fillOptions(el("serverSel"), SERVERS);
+  fillOptions(el("memSel"), MEMS, (v)=>`${v}G`);
+  fillOptions(el("threadsAnchor"), THREADS);
+  fillOptions(el("memAnchor"), MEMS);
+
+  const defaultServers = SERVERS.filter(s =>
+    s.startsWith("mariadb 12") || s.startsWith("mysql 8.4") || s.startsWith("mysql 9.6") || s.startsWith("percona-server 8.4")
+  );
+  setSelected(el("serverSel"), v => defaultServers.includes(v));
+  setSelected(el("memSel"), v => Number(v) === 12);
+
+  el("threadsAnchor").value = 64;
+  el("memAnchor").value = 12;
+
+  ["serverSel","memSel","metricSel","xSel","threadsAnchor","memAnchor"].forEach(id => {
+    el(id).addEventListener("change", render);
+  });
+
+  el("allServersBtn").addEventListener("click", () => { setSelected(el("serverSel"), _ => true); render(); });
+  el("allMemsBtn").addEventListener("click", () => { setSelected(el("memSel"), _ => true); render(); });
+  el("resetBtn").addEventListener("click", () => {
+    setSelected(el("serverSel"), v => defaultServers.includes(v));
+    setSelected(el("memSel"), v => Number(v) === 12);
+    el("metricSel").value = "tps";
+    el("xSel").value = "threads";
+    el("threadsAnchor").value = 64;
+    el("memAnchor").value = 12;
+    render();
+  });
+
+  render();
+}
+
+window.addEventListener('load', function() { loadPlotly(init); });
+</script>
+
+<!-- Download modal -->
+<div id="dlOverlay">
+  <div id="dlModal">
+    <button id="dlClose" title="Close">&#x2715;</button>
+    <h3 id="dlTitle">Download log files</h3>
+    <div id="dlSubtitle" class="subtitle"></div>
+    <ul id="dlLinks" class="dl-list"></ul>
+  </div>
+</div>
+
+<script>
+document.getElementById('dlClose').addEventListener('click', closeModal);
+document.getElementById('dlOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+</script>
+</body>
+</html>

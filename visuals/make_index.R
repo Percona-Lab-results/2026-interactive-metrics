@@ -1,7 +1,27 @@
 #!/usr/bin/env Rscript
 
+# Define paths relative to the repository root
+# (Assuming the action runs from the root)
+
+# source_file <- "visuals/visual_template.html"
+# target_file <- "index.html"
+
+# # Execute copy
+# if (file.exists(source_file)) {
+#   success <- file.copy(from = source_file, to = target_file, overwrite = TRUE)
+  
+#   if (success) {
+#     message(paste("Successfully deployed:", source_file, "->", target_file))
+#   } else {
+#     stop("Failed to copy file. Check write permissions.")
+#   }
+# } else {
+#   stop(paste("Source template not found at:", source_file))
+# }
+
+
 # Set the directory to crawl
-base_dir <- "benchmark_logs"
+base_dir <- "."
 output_file <- "index.html"
 
 # 1. Find all .html files recursively

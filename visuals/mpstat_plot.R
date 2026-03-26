@@ -7,7 +7,7 @@ suppressPackageStartupMessages({
 })
 
 # ---- 1. Determine Files to Process ----
-# Look in all subdirectories of benchmark_logs for .mpstat files
+# Look in all subdirectories of benchmark_logs for .mpstat.txt files
 log_dir <- "benchmark_logs"
 
 if (!dir.exists(log_dir)) {
@@ -17,20 +17,20 @@ if (!dir.exists(log_dir)) {
 # recursive = TRUE ensures we look into all subdirectories
 files_to_process <- list.files(
   path = log_dir, 
-  pattern = "\\.mpstat$", 
+  pattern = "\\.mpstat\\.txt$", 
   full.names = TRUE, 
   recursive = TRUE
 )
 
 if (length(files_to_process) == 0) {
-  cat("No .mpstat files found in", log_dir, "or its subdirectories.\n")
+  cat("No .mpstat.txt files found in", log_dir, "or its subdirectories.\n")
   quit(save = "no", status = 0)
 }
 
 # ---- 2. Processing Loop ----
 for (in_file in files_to_process) {
   
-  out_file <- gsub("\\.mpstat$", ".html", in_file)
+  out_file <- gsub("\\.mpstat\\.txt$", ".html", in_file)
 
   if (!file.exists(in_file)) {
     warning(paste("File not found:", in_file))
