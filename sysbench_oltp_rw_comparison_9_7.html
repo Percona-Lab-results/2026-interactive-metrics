@@ -327,9 +327,18 @@ function buildFileBase(mem_gb, threads) {
   return `Tier${mem_gb}G_RW_${threads}th`;
 }
 
+function getBaseUrlForServer(server) {
+  if (server.startsWith("custom-mysql")) {
+    return "https://percona-lab-results.github.io/2026-interactive-metrics-970/" + BASE_URL;
+  }
+  return BASE_URL;
+}
+
 function showDownloadModal(server, mem_gb, threads, tps, qps) {
   const path = serverToPath(server);
   const fileBase = buildFileBase(mem_gb, threads);
+  const baseUrl = getBaseUrlForServer(server);
+
   document.getElementById('dlTitle').textContent = server;
   document.getElementById('dlSubtitle').textContent =
     `Memory: ${mem_gb}G  ·  Threads: ${threads}  ·  TPS: ${tps.toLocaleString()}  ·  QPS: ${qps.toLocaleString()}`;
@@ -337,7 +346,7 @@ function showDownloadModal(server, mem_gb, threads, tps, qps) {
   list.innerHTML = '';
 
   LOG_EXTS.forEach(ext => {
-    const url = `${BASE_URL}/${path}/${fileBase}.${ext}`;
+    const url = `${baseUrl}/${path}/${fileBase}.${ext}`;
     const li = document.createElement('li');
     li.innerHTML = `
       <span class="ext">.${ext}</span>
@@ -350,7 +359,7 @@ function showDownloadModal(server, mem_gb, threads, tps, qps) {
 
   ["status.txt", "vars.txt", "cnf.txt", "pt-mysql-summary.txt"].forEach(ext => {
     const fname = ext === "pt-mysql-summary.txt" ? `Tier${mem_gb}G-${ext}` : `Tier${mem_gb}G.${ext}`;
-    const url = `${BASE_URL}/${path}/${fname}`;
+    const url = `${baseUrl}/${path}/${fname}`;
     const li = document.createElement('li');
     li.innerHTML = `
       <span class="ext">.${ext}</span>
