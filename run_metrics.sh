@@ -5,11 +5,12 @@ DB_HOST="127.0.0.1"   # REPLACE ME
 DB_USER="root"
 DB_PASS="password"
 DB_DATABASE="sbtest"
-#POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
-POOL_SIZES=(12 2)
+
+POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
+#POOL_SIZES=(12 2)
 
 THREADS=(1 4 16 32 64 128 256 512)
-#THREADS=(512)
+#THREADS=(32 64 128)
 
 # --- DEBUG SETTINGS ---
 TABLE_ROWS=5000000
@@ -27,6 +28,7 @@ DBMS_VER="$2"
 IS_READ_ONLY="$3"
 
 CONF_D_DIR="/etc/mysql/conf.d"
+sudo cpupower frequency-set -g performance > /dev/null
 
 echo "============= Running benchmarks for ${DBMS_NAME}:${DBMS_VER} ============="
 
@@ -88,11 +90,12 @@ run_container() {
   if [ -n "$MOUNT" ]; then
     echo "Mounting config from: $CONFIG_PATH"
     MOUNT_ARG="-v ${CONFIG_PATH}:${CONF_D_DIR}/${CONFIG_NAME}:ro"
+    # MOUNT_ARG="-v /mnt/nvme/data/:/var/log/mysql:rw ${MOUNT_ARG}"
   fi
 
   # 1. Define the command as an array
   local cmd=(
-    docker run --user mysql --rm --name "$CONTAINER_NAME"
+    docker run --user mysql --rm -it --name "$CONTAINER_NAME"
     --network host
     $MOUNT_ARG
     -e MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD"
@@ -199,57 +202,153 @@ generate_config() {
 
     # 1. Start Base Config
     echo "[mysqld]" > "$CFG"
-    echo "innodb_buffer_pool_size = ${SIZE}G" >> "$CFG"
-    echo "max_prepared_stmt_count = 1000000" >> "$CFG"
-    echo "max_connections = 4096" >> "$CFG"
-    echo "join_buffer_size = 256K" >> "$CFG"
-    echo "sort_buffer_size = 256K" >> "$CFG"
-    echo "innodb_io_capacity = 2500" >> "$CFG"
-    echo "innodb_io_capacity_max = 5000" >> "$CFG"
-    echo "table_open_cache = 200000" >> "$CFG"
-    echo "table_open_cache_instances = 64" >> "$CFG"
-    echo "back_log = 3500" >> "$CFG"
-    echo "connect_timeout = 60" >> "$CFG"
-    echo "character_set_server = utf8mb4" >> "$CFG"
-
-    echo "innodb_doublewrite = 1" >> "$CFG"
-    echo "innodb_flush_log_at_trx_commit = 1" >> "$CFG"
-    echo "innodb_flush_method = O_DIRECT" >> "$CFG"
-    echo "innodb_log_buffer_size = 64M" >> "$CFG"
-
-    # In 5.7, server_id must be specified if binary logging is enabled, otherwise the server is not allowed to start.
-    echo "server_id = 1" >> "$CFG"
-    echo "log_bin = binlog" >> "$CFG"
-    echo "sync_binlog = 1" >> "$CFG"
-    echo "binlog_format = ROW" >> "$CFG"
-    echo "binlog_row_image = MINIMAL" >> "$CFG"
-
-    # 2. Instance Sizing
-    if [ "$SIZE" -lt 8 ]; then
-        echo "innodb_buffer_pool_instances = 1" >> "$CFG"
+    if [ "$IS_MARIA" -eq 1 ]; then
+        echo "log_warnings = 2" >> "$CFG"
     else
-        echo "innodb_buffer_pool_instances = 8" >> "$CFG"
+        echo "log_error_verbosity = 3" >> "$CFG"
     fi
+    echo "log_error = /tmp/Tier${SIZE}G.errlog.txt" >> "$CFG"
+
+    echo "# --- General -------------------------------------------------------------------" >> "$CFG"
+    echo "user                            = mysql" >> "$CFG"
+    echo "datadir                         = /var/lib/mysql" >> "$CFG"
+    echo "socket                          = /var/run/mysqld/mysqld.sock" >> "$CFG"
+    echo "pid-file                        = /var/run/mysqld/mysqld.pid" >> "$CFG"
+    echo "bind-address                    = 0.0.0.0" >> "$CFG"
+    echo "port                            = 3306" >> "$CFG"
+    echo "skip-name-resolve               = ON" >> "$CFG"
+    echo "performance_schema              = OFF" >> "$CFG"
+    echo "" >> "$CFG"
+
+    echo "# --- Connection & Threading ----------------------------------------------------" >> "$CFG"
+    echo "max_connections                 = 2000" >> "$CFG"
+    echo "max_connect_errors              = 1000000" >> "$CFG"
+    echo "max_prepared_stmt_count         = 1000000" >> "$CFG"
+    echo "#thread_handling                 = pool-of-threads   # MariaDB thread pool" >> "$CFG"
+    echo "#thread_pool_size                = 64                # match physical core count" >> "$CFG"
+    echo "#thread_pool_max_threads         = 2000" >> "$CFG"
+    echo "thread_stack                    = 512K" >> "$CFG"
+    echo "thread_cache_size               = 256" >> "$CFG"
+    echo "back_log                        = 4096" >> "$CFG"
+    echo "wait_timeout                    = 300" >> "$CFG"
+    echo "interactive_timeout             = 300" >> "$CFG"
+    echo "connect_timeout                 = 60" >> "$CFG"
+    echo "" >> "$CFG"
+
+    echo "# --- InnoDB - Buffer pool Tier -------------------------------------------------" >> "$CFG"
+    echo "innodb_buffer_pool_size         = ${SIZE}G" >> "$CFG"
+
+    echo "" >> "$CFG"
+    echo "# --- InnoDB – I/O (NVMe can saturate many threads) ----------------------------" >> "$CFG"
+    echo "innodb_io_capacity              = 10000" >> "$CFG"
+    echo "innodb_io_capacity_max          = 20000" >> "$CFG"
+    echo "innodb_read_io_threads          = 16" >> "$CFG"
+    echo "innodb_write_io_threads         = 16" >> "$CFG"
+    echo "innodb_use_native_aio           = ON" >> "$CFG"
+    echo "" >> "$CFG"
+    echo "# --- InnoDB instances - one per 5G of memory, but no more than 8 -------------" >> "$CFG"
+
+    echo "# --- InnoDB – Log / Durability -------------------------------------------------" >> "$CFG"
+    echo "#innodb_log_file_size is set later with the version specific logic" >> "$CFG"
+    echo "innodb_log_buffer_size          = 256M" >> "$CFG"
+    echo "innodb_flush_log_at_trx_commit  = 1          # full ACID; use 2 for ~10 % more speed" >> "$CFG"
+    echo "innodb_doublewrite              = ON" >> "$CFG"
+
+    echo "" >> "$CFG"
+
+    echo "innodb_data_file_buffering=OFF" >> "$CFG"
+    echo "innodb_data_file_write_through=OFF" >> "$CFG"
+    echo "innodb_log_file_buffering=ON" >> "$CFG"
+    echo "innodb_log_file_write_through=OFF" >> "$CFG"
+    echo "" >> "$CFG"
+
+    echo "# --- InnoDB – Concurrency & OLTP Tuning ---------------------------------------" >> "$CFG"
+    echo "#innodb_adaptive_hash_index      = ON" >> "$CFG"
+    echo "#innodb_adaptive_flushing        = ON" >> "$CFG"
+    echo "#innodb_adaptive_flushing_lwm    = 10" >> "$CFG"
+    echo "#innodb_lru_scan_depth           = 4096" >> "$CFG"
+    echo "innodb_snapshot_isolation        = OFF" >> "$CFG"
+    echo "innodb_stats_on_metadata        = OFF" >> "$CFG"
+    echo "innodb_open_files               = 65536" >> "$CFG"
+    echo "innodb_lock_wait_timeout        = 50" >> "$CFG"
+    echo "innodb_rollback_on_timeout      = ON" >> "$CFG"
+    echo "" >> "$CFG"
+
+    echo "# --- Per-Session Buffers (keep modest; many connections × this = RAM) ----------" >> "$CFG"
+    echo "sort_buffer_size                = 4M" >> "$CFG"
+    echo "join_buffer_size                = 4M" >> "$CFG"
+    echo "read_buffer_size                = 2M" >> "$CFG"
+    echo "read_rnd_buffer_size            = 4M" >> "$CFG"
+    echo "tmp_table_size                  = 256M" >> "$CFG"
+    echo "max_heap_table_size             = 256M" >> "$CFG"
+    echo "" >> "$CFG"
+
+    echo "# --- Table & File Handles ------------------------------------------------------" >> "$CFG"
+    echo "table_open_cache                = 65536" >> "$CFG"
+    echo "table_definition_cache          = 65536" >> "$CFG"
+    echo "open_files_limit                = 1000000" >> "$CFG"
+    echo "table_open_cache_instances      = 64" >> "$CFG"
+    echo "" >> "$CFG"
+
+    echo "# --- Binary Log (enable for replication / PITR) --------------------------------" >> "$CFG"
+    # In 5.7, server_id must be specified if binary logging is enabled, otherwise the server is not allowed to start.
+    echo "server_id                       = 1" >> "$CFG"
+    echo "log_bin                         = /var/lib/mysql/mysql-bin" >> "$CFG"
+    echo "binlog_format                   = ROW" >> "$CFG"
+    echo "binlog_row_image                = MINIMAL" >> "$CFG"
+    echo "expire_logs_days                = 7" >> "$CFG"
+    echo "sync_binlog                     = 1" >> "$CFG"
+    echo "binlog_cache_size               = 4M" >> "$CFG"
+    echo "max_binlog_size                 = 512M" >> "$CFG"
+    echo "" >> "$CFG"
+
+    echo "# --- Slow Query Log ------------------------------------------------------------" >> "$CFG"
+    echo "slow_query_log                  = ON" >> "$CFG"
+    echo "slow_query_log_file             = /var/lib/mysql/slow.log" >> "$CFG"
+    echo "long_query_time                 = 1" >> "$CFG"
+    echo "log_queries_not_using_indexes   = OFF" >> "$CFG"
+    echo "min_examined_row_limit          = 1000" >> "$CFG"
+    echo "" >> "$CFG"
+
+    echo "# --- Character Set -------------------------------------------------------------" >> "$CFG"
+    echo "character_set_server            = utf8mb4" >> "$CFG"
+    echo "collation_server                = utf8mb4_unicode_ci" >> "$CFG"
+    echo "" >> "$CFG"
+
+    echo "# --- Misc ----------------------------------------------------------------------" >> "$CFG"
+    echo "max_allowed_packet              = 64M" >> "$CFG"
+    echo "bulk_insert_buffer_size         = 256M" >> "$CFG"
+    echo "myisam_sort_buffer_size         = 128M" >> "$CFG"
+    echo "key_buffer_size                 = 64M        # MyISAM only; keep small for OLTP" >> "$CFG"
+    echo "" >> "$CFG"
+
+    echo "# --- Version specific settings -------------------------------------------------" >> "$CFG"
 
     # 3. VERSION SPECIFIC LOGIC
+    INSTANCES=$(( SIZE / 5 ))
+    [ "$INSTANCES" -lt 1 ] && INSTANCES=1
+    [ "$INSTANCES" -gt 8 ] && INSTANCES=8
+
+
     if [ "$IS_MARIA" -eq 1 ]; then
         # --- MARIADB ---
         # Query Cache removed in 12.1+
-        if [ "${MAJOR_VER%%.*}" -lt 12 ]; then
-            echo "query_cache_type = 0" >> "$CFG"
+        if [ "${MAJOR_VER%%.*}" -lt 11 ]; then
+            echo "query_cache_type = OFF" >> "$CFG"
             echo "query_cache_size = 0" >> "$CFG"
+            echo "innodb_flush_method = O_DIRECT" >> "$CFG"
+            echo "innodb_buffer_pool_instances    = $INSTANCES" >> "$CFG"
+            echo "innodb_log_files_in_group = 2" >> "$CFG"
+            echo "innodb_log_file_size = 2G" >> "$CFG"
+        else
+            echo "innodb_log_file_size = 4G" >> "$CFG"
         fi
-        echo "innodb_log_file_size = 2G" >> "$CFG"
-        echo "innodb_log_files_in_group = 2" >> "$CFG"
-        echo "thread_handling = one-thread-per-connection" >> "$CFG"
-
     elif [[ "$MAJOR_VER" == "5.7" ]]; then
         # --- MYSQL / PERCONA 5.7 ---
         echo "innodb_log_file_size = 2G" >> "$CFG"
         echo "innodb_log_files_in_group = 2" >> "$CFG"
-        echo "query_cache_type = 0" >> "$CFG"
-        echo "query_cache_size = 0" >> "$CFG"
-        echo "innodb_checksum_algorithm = crc32" >> "$CFG"
+        echo "innodb_flush_method = O_DIRECT" >> "$CFG"
+        echo "innodb_buffer_pool_instances    = $INSTANCES" >> "$CFG"
 
     elif [[ "$MAJOR_VER" == "8.0" ]]; then
         # --- MYSQL / PERCONA 8.0 ---
@@ -257,12 +356,15 @@ generate_config() {
         echo "innodb_log_file_size = 2G" >> "$CFG"
         echo "innodb_log_files_in_group = 2" >> "$CFG"
         echo "innodb_change_buffering = none" >> "$CFG"
-
+        echo "innodb_flush_method = O_DIRECT" >> "$CFG"
+        echo "innodb_buffer_pool_instances    = $INSTANCES" >> "$CFG"
     else
         # --- MYSQL 8.4 / 9.x ---
         # Modern redo log handling
         echo "innodb_redo_log_capacity = 4G" >> "$CFG"
         echo "innodb_change_buffering = none" >> "$CFG"
+        echo "innodb_flush_method = O_DIRECT" >> "$CFG"
+        echo "innodb_buffer_pool_instances    = $INSTANCES" >> "$CFG"
     fi
 
     # 4. Deploy Config
@@ -277,6 +379,14 @@ generate_config() {
     sudo chmod 644 "$CONFIG_PATH"
 }
 
+copy_server_logs() {
+    local SIZE=$1
+    local DEST_DIR="${LOG_DIR}"
+
+    echo "Copying server logs to ${DEST_DIR}..."
+    docker cp "${CONTAINER_NAME}:/tmp/Tier${SIZE}G.errlog.txt" "${DEST_DIR}/"
+}
+
 
 # --- TELEMETRY FUNCTIONS ---
 start_metrics() {
@@ -287,15 +397,38 @@ start_metrics() {
     echo "mpstat -P ALL 1 > ${PREFIX}.mpstat.txt & echo \$! > /tmp/mpstat.pid"
     echo "dstat -t 1 > ${PREFIX}.dstat.txt & echo \$! > /tmp/dstat.pid"
 
+    # Start collection in background
+    HLL_OUTPUT="${PREFIX}.idbhist.txt"
+    bash "./collect_history_len.sh" "$HLL_OUTPUT" "$DB_USER" "$DB_PASS" "$DB_HOST" &
+    COLLECTOR_PID=$!
+
+    echo "Started HLL collector (PID=$COLLECTOR_PID), writing to $HLL_OUTPUT"
+    echo "$COLLECTOR_PID" > /tmp/hll_collector.pid
+
     iostat -dxm 1 > ${PREFIX}.iostat.txt & echo $! > /tmp/iostat.pid
     vmstat 1 > ${PREFIX}.vmstat.txt & echo $! > /tmp/vmstat.pid
     mpstat -P ALL 1 > ${PREFIX}.mpstat.txt & echo $! > /tmp/mpstat.pid
     dstat -t 1 > ${PREFIX}.dstat.txt & echo $! > /tmp/dstat.pid
 }
 
+stop_collector() {
+    local COLLECTOR_PID=$(cat /tmp/hll_collector.pid 2>/dev/null)
+
+    if kill -0 "$COLLECTOR_PID" 2>/dev/null; then
+        echo "Stopping HLL collector (PID=$COLLECTOR_PID)"
+        kill "$COLLECTOR_PID"
+        wait "$COLLECTOR_PID" 2>/dev/null
+    fi
+    echo "HLL data written to $HLL_OUTPUT"
+}
+
+
 stop_metrics() {
     kill $(cat /tmp/iostat.pid) $(cat /tmp/vmstat.pid) $(cat /tmp/mpstat.pid) $(cat /tmp/dstat.pid) 2>/dev/null
 }
+
+trap 'stop_metrics; stop_collector' EXIT
+trap 'stop_metrics; stop_collector; exit 1' INT TERM
 
 init_data() {
   # echo ">>> Resetting databases..."
@@ -366,8 +499,10 @@ for SIZE in "${POOL_SIZES[@]}"; do
         run > "${FILE_PREFIX}.sysbench.txt"
 
     stop_metrics
+    stop_collector
     sleep 10
   done
+  copy_server_logs $SIZE
 
   stop_container "$CONTAINER_NAME"
 done
