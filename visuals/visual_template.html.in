@@ -55,10 +55,16 @@
       padding: 9px 12px; border-radius: 9px; border: 1px solid #e0e0e0;
       background: #f8f9ff;
     }
+    #dlModal .dl-list li.custom-extra {
+      background: #f0faf4; border-color: #b2dfdb;
+    }
     #dlModal .dl-list li .ext {
       background: #1a73e8; color: #fff; border-radius: 5px;
       padding: 2px 7px; font-size: 11px; font-weight: 700; min-width: 54px;
       text-align: center; flex-shrink: 0;
+    }
+    #dlModal .dl-list li.custom-extra .ext {
+      background: #00897b;
     }
     #dlModal .dl-list li .fname {
       flex: 1; font-family: monospace; font-size: 12.5px; color: #333;
@@ -79,6 +85,14 @@
       background: #fff; color: #1a73e8; border-color: #1a73e8;
     }
     #dlModal .dl-list li .actions .btn-open:hover { background: #e8f0fe; }
+    #dlModal .dl-list li.custom-extra .actions .btn-dl {
+      background: #00897b; border-color: #00897b;
+    }
+    #dlModal .dl-list li.custom-extra .actions .btn-dl:hover { background: #00695c; border-color: #00695c; }
+    #dlModal .dl-list li.custom-extra .actions .btn-open {
+      color: #00897b; border-color: #00897b;
+    }
+    #dlModal .dl-list li.custom-extra .actions .btn-open:hover { background: #e0f2f1; }
     #dlClose {
       position: absolute; top: 12px; right: 14px; background: none;
       border: none; font-size: 22px; cursor: pointer; color: #999; line-height: 1;
@@ -313,6 +327,7 @@ function layoutForMode() {
 }
 
 const BASE_URL = "{{BASE_URL}}";
+const CUSTOM_BASE = "https://percona-lab-results.github.io/2026-interactive-metrics-970/";
 const LOG_EXTS = ["sysbench.txt", "iostat.txt", "mpstat.txt", "vmstat.txt"];
 
 function serverToPath(server) {
@@ -325,10 +340,23 @@ function buildFileBase(mem_gb, threads) {
 }
 
 function getBaseUrlForServer(server) {
-  if (server.startsWith("custom-mysql")) {
-    return "https://percona-lab-results.github.io/2026-interactive-metrics-970/" + BASE_URL;
+  if (server.startsWith("custom-mysql") || server.startsWith("custom-mariadb")) {
+    return CUSTOM_BASE + BASE_URL;
   }
   return BASE_URL;
+}
+
+function makeListItem(ext, fname, url, isExtra) {
+  const li = document.createElement('li');
+  if (isExtra) li.classList.add('custom-extra');
+  li.innerHTML = `
+    <span class="ext">.${ext}</span>
+    <span class="fname">${fname}</span>
+    <span class="actions">
+      <a class="btn-dl" href="${url}" download="${fname}" title="Download">&#8595; Download</a>
+      <a class="btn-open" href="${url}" target="_blank" rel="noopener" title="Open in new tab">&#8599; Open</a>
+    </span>`;
+  return li;
 }
 
 function showDownloadModal(server, mem_gb, threads, tps, qps) {
@@ -342,30 +370,30 @@ function showDownloadModal(server, mem_gb, threads, tps, qps) {
   const list = document.getElementById('dlLinks');
   list.innerHTML = '';
 
+  // Standard log files
   LOG_EXTS.forEach(ext => {
-    const url = `${baseUrl}/${path}/${fileBase}.${ext}`;
-    const li = document.createElement('li');
-    li.innerHTML = `
-      <span class="ext">.${ext}</span>
-      <span class="fname">${fileBase}.${ext}</span>
-      <span class="actions">
-        <a class="btn-open" href="${url}" target="_blank" rel="noopener" title="Open in new tab">&#8599; Open</a>
-      </span>`;
-    list.appendChild(li);
+    const fname = `${fileBase}.${ext}`;
+    const url = `${baseUrl}/${path}/${fname}`;
+    list.appendChild(makeListItem(ext, fname, url, false));
   });
 
+  // Per-tier files
   ["status.txt", "vars.txt", "cnf.txt", "pt-mysql-summary.txt"].forEach(ext => {
     const fname = ext === "pt-mysql-summary.txt" ? `Tier${mem_gb}G-${ext}` : `Tier${mem_gb}G.${ext}`;
     const url = `${baseUrl}/${path}/${fname}`;
-    const li = document.createElement('li');
-    li.innerHTML = `
-      <span class="ext">.${ext}</span>
-      <span class="fname">${fname}</span>
-      <span class="actions">
-        <a class="btn-open" href="${url}" target="_blank" rel="noopener" title="Open in new tab">&#8599; Open</a>
-      </span>`;
-    list.appendChild(li);
+    list.appendChild(makeListItem(ext, fname, url, false));
   });
+
+  // custom-mariadb extra files
+  if (server.startsWith("custom-mariadb")) {
+    const errlogFname = `Tier${mem_gb}G.errlog.txt`;
+    const errlogUrl = `${baseUrl}/${path}/${errlogFname}`;
+    list.appendChild(makeListItem("errlog.txt", errlogFname, errlogUrl, true));
+
+    const idbhistFname = `${fileBase}.idbhist.txt`;
+    const idbhistUrl = `${baseUrl}/${path}/${idbhistFname}`;
+    list.appendChild(makeListItem("idbhist.txt", idbhistFname, idbhistUrl, true));
+  }
 
   document.getElementById('dlOverlay').classList.add('open');
 }
