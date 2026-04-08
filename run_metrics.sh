@@ -211,9 +211,9 @@ generate_config() {
 
     echo "# --- General -------------------------------------------------------------------" >> "$CFG"
     echo "user                            = mysql" >> "$CFG"
-    echo "datadir                         = /var/lib/mysql" >> "$CFG"
-    echo "socket                          = /var/run/mysqld/mysqld.sock" >> "$CFG"
-    echo "pid-file                        = /var/run/mysqld/mysqld.pid" >> "$CFG"
+    echo "#datadir                         = /var/lib/mysql" >> "$CFG"
+    echo "#socket                          = /var/run/mysqld/mysqld.sock" >> "$CFG"
+    echo "#pid-file                        = /var/run/mysqld/mysqld.pid" >> "$CFG"
     echo "bind-address                    = 0.0.0.0" >> "$CFG"
     echo "port                            = 3306" >> "$CFG"
     echo "skip-name-resolve               = ON" >> "$CFG"
@@ -253,13 +253,6 @@ generate_config() {
     echo "innodb_log_buffer_size          = 256M" >> "$CFG"
     echo "innodb_flush_log_at_trx_commit  = 1          # full ACID; use 2 for ~10 % more speed" >> "$CFG"
     echo "innodb_doublewrite              = ON" >> "$CFG"
-
-    echo "" >> "$CFG"
-
-    echo "innodb_data_file_buffering=OFF" >> "$CFG"
-    echo "innodb_data_file_write_through=OFF" >> "$CFG"
-    echo "innodb_log_file_buffering=ON" >> "$CFG"
-    echo "innodb_log_file_write_through=OFF" >> "$CFG"
     echo "" >> "$CFG"
 
     echo "# --- InnoDB – Concurrency & OLTP Tuning ---------------------------------------" >> "$CFG"
@@ -267,7 +260,6 @@ generate_config() {
     echo "#innodb_adaptive_flushing        = ON" >> "$CFG"
     echo "#innodb_adaptive_flushing_lwm    = 10" >> "$CFG"
     echo "#innodb_lru_scan_depth           = 4096" >> "$CFG"
-    echo "innodb_snapshot_isolation        = OFF" >> "$CFG"
     echo "innodb_stats_on_metadata        = OFF" >> "$CFG"
     echo "innodb_open_files               = 65536" >> "$CFG"
     echo "innodb_lock_wait_timeout        = 50" >> "$CFG"
@@ -296,7 +288,7 @@ generate_config() {
     echo "log_bin                         = /var/lib/mysql/mysql-bin" >> "$CFG"
     echo "binlog_format                   = ROW" >> "$CFG"
     echo "binlog_row_image                = MINIMAL" >> "$CFG"
-    echo "expire_logs_days                = 7" >> "$CFG"
+    #echo "expire_logs_days                = 7" >> "$CFG"
     echo "sync_binlog                     = 1" >> "$CFG"
     echo "binlog_cache_size               = 4M" >> "$CFG"
     echo "max_binlog_size                 = 512M" >> "$CFG"
@@ -343,6 +335,12 @@ generate_config() {
         else
             echo "innodb_log_file_size = 4G" >> "$CFG"
         fi
+        echo "innodb_data_file_buffering=OFF" >> "$CFG"
+        echo "innodb_data_file_write_through=OFF" >> "$CFG"
+        echo "innodb_log_file_buffering=ON" >> "$CFG"
+        echo "innodb_log_file_write_through=OFF" >> "$CFG"
+        echo "innodb_snapshot_isolation        = OFF" >> "$CFG"
+
     elif [[ "$MAJOR_VER" == "5.7" ]]; then
         # --- MYSQL / PERCONA 5.7 ---
         echo "innodb_log_file_size = 2G" >> "$CFG"
