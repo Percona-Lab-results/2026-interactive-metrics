@@ -340,7 +340,7 @@ function buildFileBase(mem_gb, threads) {
 }
 
 function getBaseUrlForServer(server) {
-  if (server.startsWith("custom-mysql") || server.startsWith("custom-mariadb")) {
+  if (server.startsWith("custom")) {
     return CUSTOM_BASE + BASE_URL;
   }
   return BASE_URL;
@@ -385,7 +385,7 @@ function showDownloadModal(server, mem_gb, threads, tps, qps) {
   });
 
   // custom-mariadb extra files
-  if (server.startsWith("custom-mariadb")) {
+  if (server.startsWith("custom")) {
     const errlogFname = `Tier${mem_gb}G.errlog.txt`;
     const errlogUrl = `${baseUrl}/${path}/${errlogFname}`;
     list.appendChild(makeListItem("errlog.txt", errlogFname, errlogUrl, true));
@@ -426,7 +426,7 @@ function init() {
   fillOptions(el("memAnchor"), MEMS);
 
   const defaultServers = SERVERS.filter(s =>
-    s.startsWith("mariadb 12") || s.startsWith("mysql 8.4") || s.startsWith("mysql 9.6") || s.startsWith("percona-server 8.4")
+    s.startsWith("custom") || s.startsWith("mariadb 12") || s.startsWith("mysql 8.4") || s.startsWith("mysql 9.6") || s.startsWith("percona-server 8.4")
   );
   setSelected(el("serverSel"), v => defaultServers.includes(v));
   setSelected(el("memSel"), v => Number(v) === 12);
