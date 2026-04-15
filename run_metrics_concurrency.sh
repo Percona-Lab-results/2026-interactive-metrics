@@ -7,10 +7,10 @@ DB_PASS="password"
 DB_DATABASE="sbtest"
 
 POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
-#POOL_SIZES=(2)
 
-THREADS=(1 4 16 32 64 128 256 512)
-#THREADS=(32 64 128)
+THREADS=(128 256 512)
+
+CONCURRENCY=(8 16 32 64)
 
 # --- DEBUG SETTINGS ---
 TABLE_ROWS=5000000
@@ -197,6 +197,7 @@ run_mysql_summary() {
 # --- CONFIGURATION GENERATOR ---
 generate_config() {
     local SIZE=$1
+    local CONCUR=$2
     local CFG="/tmp/$CONFIG_NAME"
     rm "$CFG"
 
@@ -259,6 +260,7 @@ generate_config() {
     echo "" >> "$CFG"
 
     echo "# --- InnoDB – Concurrency & OLTP Tuning ---------------------------------------" >> "$CFG"
+    echo "innodb_thread_concurrency       = ${CONCUR}" >> "$CFG"
     echo "#innodb_adaptive_hash_index      = ON" >> "$CFG"
     echo "#innodb_adaptive_flushing        = ON" >> "$CFG"
     echo "#innodb_adaptive_flushing_lwm    = 10" >> "$CFG"
@@ -399,12 +401,12 @@ start_metrics() {
     echo "dstat -t 1 > ${PREFIX}.dstat.txt & echo \$! > /tmp/dstat.pid"
 
     # Start collection in background
-    SQL_OUTPUT="${PREFIX}.idbhist.txt"
-    bash "./collect_sql_data.sh" "$SQL_OUTPUT" "$DB_USER" "$DB_PASS" "$DB_HOST" "$DB_PORT" "$DURATION" "SHOW ENGINE INNODB STATUS" "0" &
+    HLL_OUTPUT="${PREFIX}.idbhist.txt"
+    bash "./collect_history_len.sh" "$HLL_OUTPUT" "$DB_USER" "$DB_PASS" "$DB_HOST" &
     COLLECTOR_PID=$!
 
-    echo "Started InnoDB collector (PID=$COLLECTOR_PID), writing to $SQL_OUTPUT"
-    echo "$COLLECTOR_PID" > /tmp/sql_collector.pid
+    echo "Started HLL collector (PID=$COLLECTOR_PID), writing to $HLL_OUTPUT"
+    echo "$COLLECTOR_PID" > /tmp/hll_collector.pid
 
     iostat -dxm 1 > ${PREFIX}.iostat.txt & echo $! > /tmp/iostat.pid
     vmstat 1 > ${PREFIX}.vmstat.txt & echo $! > /tmp/vmstat.pid
@@ -413,14 +415,14 @@ start_metrics() {
 }
 
 stop_collector() {
-    local COLLECTOR_PID=$(cat /tmp/sql_collector.pid 2>/dev/null)
+    local COLLECTOR_PID=$(cat /tmp/hll_collector.pid 2>/dev/null)
 
     if kill -0 "$COLLECTOR_PID" 2>/dev/null; then
-        echo "Stopping InnoDB collector (PID=$COLLECTOR_PID)"
+        echo "Stopping HLL collector (PID=$COLLECTOR_PID)"
         kill "$COLLECTOR_PID"
         wait "$COLLECTOR_PID" 2>/dev/null
     fi
-    echo "`SQL` data written to $SQL_OUTPUT"
+    echo "HLL data written to $HLL_OUTPUT"
 }
 
 
@@ -441,13 +443,34 @@ init_data() {
 }
 
 
+set_thread_concurrency() {
+    local EXPECTED=$1
+    echo ">>> Setting innodb_thread_concurrency = ${EXPECTED}..."
+
+    mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" \
+        -e "SET GLOBAL innodb_thread_concurrency = ${EXPECTED};" 2>/dev/null
+
+    local ACTUAL=$(mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -N -s \
+        -e "SELECT @@innodb_thread_concurrency;" 2>/dev/null)
+
+    if [ "$ACTUAL" -ne "$EXPECTED" ]; then
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        echo "CRITICAL ERROR: innodb_thread_concurrency is ${ACTUAL} (Expected ${EXPECTED})"
+        echo "Aborting entire benchmark script immediately."
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        exit 1
+    fi
+
+    echo "Verification successful: innodb_thread_concurrency = ${ACTUAL}."
+}
+
 # --- EXECUTION LOOP ---
 for SIZE in "${POOL_SIZES[@]}"; do
   echo "========================================================="
   echo ">>> TIER: ${SIZE}GB | VER: $RAW_VERSION <<<"
   echo "========================================================="
 
-  # 1. Apply Config & Restart
+  # 1. Apply Config & Restart (once per SIZE tier)
   generate_config $SIZE
 
   stop_container $CONTAINER_NAME
@@ -461,9 +484,7 @@ for SIZE in "${POOL_SIZES[@]}"; do
   init_data
   run_mysql_summary "${LOG_DIR}/Tier${SIZE}G"
 
-  # continue # SKIP BENCHMARKS FOR NOW, REMOVE ME WHEN READY
-  
-  # 2. WARMUP (Reads then Writes)
+  # 2. WARMUP (once per SIZE tier)
   echo ">>> Warmup A: Read-Only (${WARMUP_RO_TIME}s)..."
   sysbench oltp_read_only --mysql-host=$DB_HOST --mysql-user=$DB_USER --mysql-password=$DB_PASS \
     --mysql-db=$DB_DATABASE --tables=20 --table-size=$TABLE_ROWS --threads=16 --time=$WARMUP_RO_TIME run
@@ -478,33 +499,41 @@ for SIZE in "${POOL_SIZES[@]}"; do
     TEST_TYPE="oltp_read_write"
   fi
 
-  # 3. MEASUREMENT
-  for THREAD in "${THREADS[@]}"; do
-      FILE_PREFIX="${LOG_DIR}/Tier${SIZE}G_RW_${THREAD}th"
-      echo "   >>> Testing ${THREAD} Threads..."
+  # 3. CONCURRENCY & MEASUREMENT (no restart needed)
+  for CONCUR in "${CONCURRENCY[@]}"; do
+    echo "========================================================="
+    echo ">>> TIER: ${SIZE}GB | CONCURRENCY: ${CONCUR} <<<"
+    echo "========================================================="
 
-      start_metrics "$FILE_PREFIX"
+    set_thread_concurrency $CONCUR
 
-      sysbench $TEST_TYPE \
-        --mysql-host=$DB_HOST \
-        --mysql-user=$DB_USER \
-        --mysql-password=$DB_PASS \
-        --mysql-db=$DB_DATABASE \
-        --tables=20 \
-        --table-size=$TABLE_ROWS \
-        --threads=$THREAD \
-        --time=$DURATION \
-        --report-interval=1 \
-        --rand-type=uniform \
-        --mysql-ssl=off \
-        run > "${FILE_PREFIX}.sysbench.txt"
+    for THREAD in "${THREADS[@]}"; do
+        FILE_PREFIX="${LOG_DIR}/Tier${SIZE}G_Concur${CONCUR}_${THREAD}th"
+        echo "   >>> Testing ${THREAD} Threads..."
 
-    stop_metrics
-    stop_collector
-    sleep 10
+        start_metrics "$FILE_PREFIX"
+
+        sysbench $TEST_TYPE \
+          --mysql-host=$DB_HOST \
+          --mysql-user=$DB_USER \
+          --mysql-password=$DB_PASS \
+          --mysql-db=$DB_DATABASE \
+          --tables=20 \
+          --table-size=$TABLE_ROWS \
+          --threads=$THREAD \
+          --time=$DURATION \
+          --report-interval=1 \
+          --rand-type=uniform \
+          --mysql-ssl=off \
+          run > "${FILE_PREFIX}.sysbench.txt"
+
+      stop_metrics
+      stop_collector
+      sleep 10
+    done
   done
-  copy_server_logs $SIZE
 
+  copy_server_logs $SIZE
   stop_container "$CONTAINER_NAME"
 done
 echo "============= Finished benchmarks for ${DBMS_NAME}:${DBMS_VER} ============="
